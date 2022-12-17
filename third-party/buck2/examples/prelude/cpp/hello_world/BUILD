@@ -1,4 +1,3 @@
-load("@prelude//rules.bzl", "cxx_binary")
 load("//test_utils.bzl", "assert_output")
 
 cxx_binary(

@@ -30,6 +30,7 @@ mod iter;
 mod mix_u32;
 pub mod small_map;
 pub mod small_set;
+pub(crate) mod sorting;
 pub(crate) mod vec2;
 pub(crate) mod vec_map;
 

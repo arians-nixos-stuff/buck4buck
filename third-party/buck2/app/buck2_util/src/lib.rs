@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+pub mod arc_str;
 pub mod process;
 pub mod process_stats;
 pub mod rtabort;

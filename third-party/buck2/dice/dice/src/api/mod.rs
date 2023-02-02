@@ -13,4 +13,5 @@ pub mod computations;
 pub mod data;
 pub mod dice;
 pub mod error;
+pub mod events;
 pub mod user_data;

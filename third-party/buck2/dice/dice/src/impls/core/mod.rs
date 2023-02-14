@@ -7,5 +7,6 @@
  * of this source tree.
  */
 
+mod graph;
 mod processor;
 mod state;

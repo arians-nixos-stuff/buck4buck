@@ -11,4 +11,5 @@ pub mod daemon;
 pub(crate) mod daemonize;
 pub mod docs;
 pub mod forkserver;
+pub mod internal_test_runner;
 pub(crate) mod schedule_termination;

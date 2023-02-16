@@ -14,4 +14,5 @@ mod attr;
 mod functions;
 pub mod interpreter;
 mod rule;
+mod super_package;
 mod tests;

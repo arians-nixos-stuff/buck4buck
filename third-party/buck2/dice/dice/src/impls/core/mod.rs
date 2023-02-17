@@ -8,6 +8,7 @@
  */
 
 mod graph;
+mod internals;
 mod processor;
 pub(crate) mod state;
 pub(crate) mod versions;

@@ -1,1 +1,4 @@
 extra_srcs = ["src/**/*.md"]
+
+[[buildscript]]
+[buildscript.build]

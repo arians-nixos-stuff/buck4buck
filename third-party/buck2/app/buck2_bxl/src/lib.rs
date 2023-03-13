@@ -10,6 +10,7 @@
 #![feature(async_closure)]
 #![feature(trait_alias)]
 #![feature(try_blocks)]
+#![feature(provide_any)]
 
 pub mod bxl;
 pub mod command;

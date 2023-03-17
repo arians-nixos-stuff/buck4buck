@@ -7,6 +7,9 @@
  * of this source tree.
  */
 
+#![feature(try_blocks)]
+
+pub(crate) mod actions;
 mod context;
 
 /// This crate has `#[ctor]` and no public members.

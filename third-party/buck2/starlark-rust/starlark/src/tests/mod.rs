@@ -23,6 +23,7 @@ mod comprehension;
 mod def;
 mod derive;
 mod docs;
+mod for_loop;
 mod freeze_access_value;
 mod go;
 mod interop;

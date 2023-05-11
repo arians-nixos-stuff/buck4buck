@@ -9,5 +9,6 @@
 
 #![cfg(test)]
 
+mod legacy;
 mod opaque;
 mod projection;

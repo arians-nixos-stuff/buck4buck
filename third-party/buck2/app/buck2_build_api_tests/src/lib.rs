@@ -10,6 +10,7 @@
 #![cfg(test)]
 
 mod actions;
+mod analysis;
 mod artifact_groups;
 mod attrs;
 mod interpreter;

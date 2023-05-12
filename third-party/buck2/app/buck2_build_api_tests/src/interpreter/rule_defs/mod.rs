@@ -9,5 +9,5 @@
 
 pub(crate) mod artifact;
 pub(crate) mod artifact_tagging;
-mod cmd_args;
+pub(crate) mod cmd_args;
 mod provider;

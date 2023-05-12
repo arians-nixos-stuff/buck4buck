@@ -1,0 +1,38 @@
+[package]
+authors = ["Facebook"]
+edition = "2021"
+license = "MIT OR Apache-2.0"
+name = "buck2_query_impls"
+version = "0.0.0"
+description = "uquery, cquery, aquery and analysis query implementations for Buck2"
+
+[dependencies]
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+ctor = { workspace = true }
+futures = { workspace = true }
+dashmap = { workspace = true }
+derive_more = { workspace = true }
+either = { workspace = true }
+indexmap = { workspace = true }
+itertools = { workspace = true }
+ref-cast = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+
+allocative = { workspace = true }
+dice = { workspace = true }
+dupe = { workspace = true }
+gazebo = { workspace = true }
+more_futures = { workspace = true }
+starlark = { workspace = true }
+
+buck2_build_api = { workspace = true }
+buck2_common = { workspace = true }
+buck2_core = { workspace = true }
+buck2_events = { workspace = true }
+buck2_interpreter_for_build = { workspace = true }
+buck2_node = { workspace = true }
+buck2_query = { workspace = true }
+buck2_query_parser = { workspace = true }

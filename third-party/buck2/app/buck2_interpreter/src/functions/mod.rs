@@ -8,4 +8,5 @@
  */
 
 pub mod dedupe;
+pub mod regex;
 pub mod sha256;

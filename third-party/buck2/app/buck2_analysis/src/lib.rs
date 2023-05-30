@@ -11,6 +11,7 @@
 #![feature(try_blocks)]
 
 pub mod analysis;
+pub(crate) mod attrs;
 
 pub fn init_late_bindings() {
     analysis::calculation::init_rule_analysis_calculation();

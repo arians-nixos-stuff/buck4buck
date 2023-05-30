@@ -12,4 +12,5 @@ pub mod more;
 pub mod regex;
 pub mod sha256;
 pub mod soft_error;
+pub mod transition;
 pub mod warning;

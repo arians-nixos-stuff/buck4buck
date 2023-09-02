@@ -18,6 +18,7 @@
 //! Starlark AST.
 
 #![allow(clippy::comparison_chain)]
+#![allow(clippy::comparison_to_empty)]
 #![allow(clippy::len_without_is_empty)]
 #![allow(clippy::new_ret_no_self)]
 #![allow(clippy::should_implement_trait)]
@@ -37,3 +38,4 @@ pub mod lexer;
 #[cfg(test)]
 mod lexer_tests;
 pub mod slice_vec_ext;
+pub mod syntax;

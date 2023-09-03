@@ -1,0 +1,34 @@
+[package]
+name = "starlark_lsp"
+edition = "2021"
+version = "0.9.0"
+license = "Apache-2.0"
+description = "LSP bindings for starlark"
+documentation = "https://docs.rs/starlark"
+repository = "https://github.com/facebookexperimental/starlark-rust"
+authors = [
+    "Damien Martin-Guillerez <dmarting@google.com>",
+    "Facebook",
+]
+keywords = ["starlark", "skylark", "language", "interpreter"]
+categories = ["parser-implementations", "development-tools"]
+
+[dependencies]
+anyhow = "1.0.65"
+derivative = "2.2"
+derive_more = "0.99"
+dupe = { workspace = true }
+itertools = "0.10"
+thiserror = "1.0.36"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+lsp-server = "0.7.2"
+lsp-types = "0.94.1"
+
+starlark_syntax = { version = "0.9.0", path = "../starlark_syntax" }
+starlark = { version = "0.9.0", path = "../starlark" }
+
+[dev-dependencies]
+maplit = "1.0.2"
+regex = "1.5.4"
+textwrap = "0.11"

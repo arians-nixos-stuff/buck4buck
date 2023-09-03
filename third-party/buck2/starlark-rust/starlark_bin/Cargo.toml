@@ -15,7 +15,9 @@ categories = ["parser-implementations", "development-tools"]
 
 [dependencies]
 dupe = { workspace = true }
+
 starlark = { version = "0.9.0", path = "../starlark" }
+starlark_lsp = { version = "0.9.0", path = "../starlark_lsp" }
 starlark_map = { version = "0.9.0", path = "../starlark_map" }
 
 anyhow = "1.0.65"

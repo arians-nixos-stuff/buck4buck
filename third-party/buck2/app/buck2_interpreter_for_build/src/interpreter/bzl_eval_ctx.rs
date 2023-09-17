@@ -10,6 +10,6 @@
 use buck2_core::bzl::ImportPath;
 
 #[derive(Debug)]
-pub(crate) struct BzlEvalCtx {
+pub struct BzlEvalCtx {
     pub(crate) bzl_path: ImportPath,
 }

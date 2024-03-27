@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+mod alloc_value;
 mod attrs;
 mod docs;
 mod freeze;

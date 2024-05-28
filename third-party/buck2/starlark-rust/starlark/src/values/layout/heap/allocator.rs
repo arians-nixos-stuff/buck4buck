@@ -15,5 +15,6 @@
  * limitations under the License.
  */
 
+pub(crate) mod alloc;
 pub(crate) mod api;
 pub(crate) mod bumpalo;

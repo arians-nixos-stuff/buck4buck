@@ -18,6 +18,7 @@
 //! Bytecode generation tests.
 
 mod and_or;
+mod call;
 mod compr;
 mod definitely_assigned;
 mod expr;

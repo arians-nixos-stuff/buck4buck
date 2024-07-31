@@ -84,7 +84,7 @@ _PrePostFlags = record(
     post_flags = list,
 )
 
-def cxx_dist_link(
+def cxx_gnu_dist_link(
         ctx: AnalysisContext,
         # The destination for the link output.
         output: Artifact,

@@ -35,6 +35,7 @@ pub mod none;
 pub(crate) mod num;
 pub mod range;
 pub mod record;
+pub mod set;
 pub mod starlark_value_as_type;
 pub mod string;
 pub mod structs;

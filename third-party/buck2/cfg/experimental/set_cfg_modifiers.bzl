@@ -8,6 +8,15 @@
 load("@prelude//cfg/modifier:common.bzl?v2_only", "MODIFIER_METADATA_KEY", "get_tagged_modifiers", "tagged_modifiers_to_json")
 load("@prelude//cfg/modifier:types.bzl?v2_only", "Modifier", "ModifierPackageLocation")  # @unused Used in type annotation
 
+##########################################################
+# NOTE: This file is now available in the buck2 prelude. #
+#                                                        #
+# You should prefer including / using that version.      #
+#                                                        #
+# If you are modifying this file, please make sure to    #
+# keep the prelude version in sync.                      #
+##########################################################
+
 def set_cfg_modifiers(
         cfg_modifiers: list[Modifier] | None = None,
         extra_cfg_modifiers_per_rule: dict[str, list[Modifier]] | None = None):

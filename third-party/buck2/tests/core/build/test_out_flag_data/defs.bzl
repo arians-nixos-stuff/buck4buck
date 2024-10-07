@@ -20,3 +20,13 @@ out_library = rule(
         "outs": attrs.list(attrs.dep()),
     },
 )
+
+def _export_file_impl(ctx):
+    return [DefaultInfo(default_output = ctx.attrs.src)]
+
+export_file = rule(
+    impl = _export_file_impl,
+    attrs = {
+        "src": attrs.source(allow_directory = True),
+    },
+)

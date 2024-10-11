@@ -13,8 +13,8 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
 # Test platform can be loaded via `alias` rule.
-@buck_test(inplace=True)
+@buck_test(inplace=False)
 async def test_platform_via_alias(buck: Buck) -> None:
     await buck.build(
-        "fbcode//buck2/tests/e2e/configurations/test_platform_via_alias_data:gr",
+        "root//:gr",
     )

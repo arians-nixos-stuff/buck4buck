@@ -28,6 +28,7 @@ pub mod serde {
 }
 pub use inventory;
 pub mod components;
+pub mod invoke_macro_error;
 pub mod param_spec;
 pub mod parse_args;
 pub mod sig;

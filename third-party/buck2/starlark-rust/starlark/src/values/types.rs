@@ -31,6 +31,7 @@ pub mod int;
 pub(crate) mod known_methods;
 pub mod list;
 pub mod list_or_tuple;
+pub mod namespace;
 pub mod none;
 pub(crate) mod num;
 pub mod range;

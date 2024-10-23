@@ -6,13 +6,21 @@
 
 # name
 
-These are where the module docs go
-
 ## MAGIC
 
 ```python
 MAGIC: int
 ```
+
+---
+
+## Obj
+
+```python
+Obj: obj
+```
+
+These are where the module docs go
 
 ---
 
@@ -71,34 +79,10 @@ And some assertions:
 
 ---
 
-## notypes
-
-```python
-def notypes(a)
-```
-
----
-
 ## pos\_either\_named
 
 ```python
 def pos_either_named(a: int, /, b: int, *, c: int) -> None
-```
-
----
-
-## starlark\_args
-
-```python
-def starlark_args(*args: str) -> None
-```
-
----
-
-## starlark\_kwargs
-
-```python
-def starlark_kwargs(**kwargs: int) -> None
 ```
 
 ---

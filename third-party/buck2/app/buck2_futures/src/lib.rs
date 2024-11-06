@@ -12,6 +12,7 @@
 
 pub mod cancellable_future;
 pub mod cancellation;
+mod details;
 pub mod drop;
 pub mod drop_on_ready;
 pub mod instrumented_shared;

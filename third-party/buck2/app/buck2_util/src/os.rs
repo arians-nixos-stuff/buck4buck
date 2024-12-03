@@ -9,4 +9,5 @@
 
 pub mod host_cpu_usage;
 pub mod macos;
+pub mod unix_like;
 pub mod win;

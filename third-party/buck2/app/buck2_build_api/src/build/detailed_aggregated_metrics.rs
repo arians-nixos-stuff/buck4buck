@@ -8,4 +8,6 @@
  */
 
 pub mod dice;
+pub mod events;
+mod implementation;
 pub mod types;

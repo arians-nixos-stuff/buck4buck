@@ -11,3 +11,8 @@ pub mod dice;
 pub mod events;
 mod implementation;
 pub mod types;
+
+pub mod testing {
+    pub use super::implementation::traverse::traverse_partial_action_graph;
+    pub use super::implementation::traverse::traverse_target_graph;
+}

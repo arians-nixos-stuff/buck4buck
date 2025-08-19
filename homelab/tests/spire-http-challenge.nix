@@ -1,4 +1,3 @@
-{ pkgs, ... }:
 let
   trustDomain = "example.com";
 in

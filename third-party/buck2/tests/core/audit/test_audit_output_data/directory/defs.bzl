@@ -7,10 +7,12 @@
 # above-listed licenses.
 
 def _impl(ctx):
-    out = ctx.actions.copied_dir("outputdir", {})
+    out = ctx.actions.copied_dir("outputdir", {}, uses_experimental_content_based_path_hashing = ctx.attrs.uses_experimental_content_based_path_hashing)
     return [DefaultInfo(default_output = out)]
 
 empty_dir = rule(
     impl = _impl,
-    attrs = {},
+    attrs = {
+        "uses_experimental_content_based_path_hashing": attrs.bool(default = False),
+    },
 )

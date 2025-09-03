@@ -6,14 +6,6 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@prelude//rust:linkable_symbol.bzl", prelude_rust_linkable_symbol = "rust_linkable_symbol")
-load("@shim//:shims.bzl", _rust_library = "rust_library")
+load("@fbsource//tools/build_defs:rust_linkable_symbol.bzl", _rust_linkable_symbol = "rust_linkable_symbol")
 
-def rust_linkable_symbol(
-        visibility = ["PUBLIC"],
-        **kwargs):
-    prelude_rust_linkable_symbol(
-        visibility = visibility,
-        rust_library_macro = _rust_library,
-        **kwargs
-    )
+rust_linkable_symbol = _rust_linkable_symbol

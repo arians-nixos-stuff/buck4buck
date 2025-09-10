@@ -19,4 +19,5 @@ pub mod executors;
 pub mod low_pass_filter;
 pub mod materializers;
 pub mod re;
+pub mod sqlite;
 mod storage_resource_exhausted;

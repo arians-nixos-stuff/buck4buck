@@ -11,6 +11,8 @@
 #[cfg(fbcode_build)]
 pub(crate) mod graphql;
 #[cfg(fbcode_build)]
+pub(crate) mod slowness;
+#[cfg(fbcode_build)]
 pub(crate) mod slowness_check;
 #[cfg(fbcode_build)]
 pub(crate) mod stable_revision;

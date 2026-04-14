@@ -332,6 +332,9 @@ message InstantEvent {
 
     // Action digest tracing event
     ActionDigestTrace action_digest_trace = 57;
+
+    // RE log stream handles available for a running action
+    ReLogStreamAvailable re_log_stream_available = 58;
   }
 }
 
@@ -2098,6 +2101,15 @@ message ActionDigestTrace {
   optional uint64 storage_cost_bytes = 9;
   // Execution time in milliseconds
   optional uint64 compute_cost_ms = 10;
+}
+
+// RE log stream handles available for a running action
+message ReLogStreamAvailable {
+  string action_digest = 1;
+  string stdout_stream_name = 2;
+  string stderr_stream_name = 3;
+  optional string action_key = 4;
+  string use_case = 5;
 }
 
 message LocalStage {

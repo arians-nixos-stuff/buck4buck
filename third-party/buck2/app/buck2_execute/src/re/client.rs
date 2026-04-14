@@ -1381,6 +1381,7 @@ impl RemoteExecutionClientImpl {
         let mut exe_stage = Stage::QUEUED;
         let mut execution_started = ExecutionStarted::No;
         let mut operation_metadata = None;
+        let mut log_stream_emitted = false;
 
         let re_fallback_on_estimated_queue_time_exceeds = knobs
             .re_fallback_on_estimated_queue_time_exceeds
@@ -1434,6 +1435,22 @@ impl RemoteExecutionClientImpl {
                 execution_started = ExecutionStarted::Yes;
             }
             operation_metadata = Some(progress_response.metadata);
+
+            // Emit log stream handles when first available
+            if !log_stream_emitted {
+                if let Some(ref meta) = operation_metadata {
+                    if !meta.stdout_stream_name.is_empty() || !meta.stderr_stream_name.is_empty() {
+                        log_stream_emitted = true;
+                        get_dispatcher().instant_event(buck2_data::ReLogStreamAvailable {
+                            action_digest: action_digest_str.clone(),
+                            stdout_stream_name: meta.stdout_stream_name.clone(),
+                            stderr_stream_name: meta.stderr_stream_name.clone(),
+                            action_key: action_key.clone(),
+                            use_case: re_use_case.clone(),
+                        });
+                    }
+                }
+            }
         }
     }
 

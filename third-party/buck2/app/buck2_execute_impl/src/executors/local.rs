@@ -217,6 +217,7 @@ impl LocalExecutor {
                 }
                 ForkserverAccess::None => {
                     let _disable_miniperf = disable_miniperf;
+                    let _network_access = network_access;
                     let exe = maybe_absolutize_exe(exe, &working_directory)?;
                     let mut cmd = background_command(exe.as_ref());
                     cmd.current_dir(working_directory.as_path());

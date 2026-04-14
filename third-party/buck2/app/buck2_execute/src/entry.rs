@@ -94,8 +94,9 @@ fn do_normalize_permissions(path: &AbsNormPathBuf) -> buck2_error::Result<()> {
     #[cfg(not(unix))]
     {
         if perms.readonly() {
+            #[allow(clippy::permissions_set_readonly_false)]
             perms.set_readonly(false);
-            fs_util::set_permissions(&path, perms).categorize_internal()?;
+            fs_util::set_permissions(path, perms).categorize_internal()?;
         }
     }
     Ok(())

@@ -478,3 +478,40 @@ async def test_brr_per_target_listing_only(buck: Buck, tmp_path: Path) -> None:
         "BRR retry should suppress execution for listing-only targets, "
         "but 'NO TESTS RAN' not found in stderr"
     )
+
+
+@buck_test(inplace=True, skip_for_os=["darwin", "windows"])
+async def test_save_successes_for_retry(buck: Buck, tmp_path: Path) -> None:
+    """
+    --save-successes-for-retry-in-file writes all passing tests to an NDJSON
+    file. Each line contains a single test_name entry. The file format is
+    identical to --save-failures-for-retry-in-file so it can be consumed by
+    --base-rev-retry-with-input-file.
+    """
+    mode = get_mode_from_platform()
+    successes_file = tmp_path / "successes.ndjson"
+
+    # Run a passing test target with --save-successes-for-retry-in-file.
+    await buck.test(
+        PYTHON_TEST_TARGET,
+        mode,
+        "--",
+        "--save-successes-for-retry-in-file",
+        str(successes_file),
+    )
+
+    # Verify the file was created and is non-empty.
+    assert successes_file.exists(), "Successes file was not created"
+    content = successes_file.read_text()
+    lines = [line for line in content.splitlines() if line.strip()]
+    assert len(lines) > 0, "Successes file is empty — expected passing tests"
+
+    # Verify each line is valid JSON with exactly one test_name.
+    for line in lines:
+        entry = json.loads(line)
+        test_names = entry.get("test_names", [])
+        assert len(test_names) == 1, (
+            f"Expected exactly 1 test_name per line, got {len(test_names)}: {test_names}"
+        )
+        assert entry.get("run_id"), "Missing run_id"
+        assert entry.get("suite_name"), "Missing suite_name"

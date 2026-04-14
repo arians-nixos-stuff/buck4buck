@@ -26,7 +26,6 @@ use starlark::values::UnpackValue;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::starlark_value;
-use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::type_repr::StarlarkTypeRepr;
 
 use super::StarlarkTaggedValueGen;
@@ -130,7 +129,7 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike<'v> for StarlarkTaggedCommandLineG
 }
 
 #[starlark_module]
-pub(crate) fn register_tagged_command_line(globals: &mut GlobalsBuilder) {
-    const TaggedCommandLine: StarlarkValueAsType<StarlarkTaggedCommandLine> =
-        StarlarkValueAsType::new();
-}
+#[starlark_types(
+    StarlarkTaggedCommandLine<'_> as TaggedCommandLine
+)]
+pub(crate) fn register_tagged_command_line(globals: &mut GlobalsBuilder) {}

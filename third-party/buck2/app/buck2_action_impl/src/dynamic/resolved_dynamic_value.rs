@@ -24,7 +24,6 @@ use starlark::values::StarlarkValue;
 use starlark::values::Value;
 use starlark::values::ValueTyped;
 use starlark::values::starlark_value;
-use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 
 #[derive(
     Debug,
@@ -84,7 +83,7 @@ fn resolved_dynamic_value_methods(method: &mut MethodsBuilder) {
 }
 
 #[starlark_module]
-pub(crate) fn register_resolved_dynamic_value(globals: &mut GlobalsBuilder) {
-    const ResolvedDynamicValue: StarlarkValueAsType<StarlarkResolvedDynamicValue> =
-        StarlarkValueAsType::new();
-}
+#[starlark_types(
+    StarlarkResolvedDynamicValue as ResolvedDynamicValue
+)]
+pub(crate) fn register_resolved_dynamic_value(globals: &mut GlobalsBuilder) {}

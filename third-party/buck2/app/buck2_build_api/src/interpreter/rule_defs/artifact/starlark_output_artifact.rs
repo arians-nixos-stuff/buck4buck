@@ -44,7 +44,6 @@ use starlark::values::ValueLike;
 use starlark::values::ValueTyped;
 use starlark::values::ValueTypedComplex;
 use starlark::values::starlark_value;
-use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark_map::StarlarkHasher;
 
@@ -350,6 +349,7 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike<'v> for StarlarkOutputArtifactGen<
 
 /// The result of calling [`Artifact.as_output()`](../Artifact/#artifactas_output).
 #[starlark_module]
-pub(crate) fn register_output_artifact(globals: &mut GlobalsBuilder) {
-    const OutputArtifact: StarlarkValueAsType<StarlarkOutputArtifact> = StarlarkValueAsType::new();
-}
+#[starlark_types(
+    StarlarkOutputArtifact<'_> as OutputArtifact
+)]
+pub(crate) fn register_output_artifact(globals: &mut GlobalsBuilder) {}

@@ -35,7 +35,6 @@ use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::list::UnpackList;
 use starlark::values::starlark_value;
-use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::type_repr::StarlarkTypeRepr;
 
 use crate::artifact_groups::ArtifactGroup;
@@ -324,7 +323,7 @@ impl<'v> StarlarkValue<'v> for StarlarkPromiseArtifact {
 }
 
 #[starlark_module]
-pub(crate) fn register_promise_artifact(globals: &mut GlobalsBuilder) {
-    const PromiseArtifact: StarlarkValueAsType<StarlarkPromiseArtifact> =
-        StarlarkValueAsType::new();
-}
+#[starlark_types(
+    StarlarkPromiseArtifact as PromiseArtifact
+)]
+pub(crate) fn register_promise_artifact(globals: &mut GlobalsBuilder) {}

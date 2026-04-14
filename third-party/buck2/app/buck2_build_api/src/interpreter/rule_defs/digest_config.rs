@@ -25,7 +25,6 @@ use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::starlark_value;
-use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 
 /// Functions to access the daemon's digest config. This is not normally all that useful, but it
 /// allows instrospection in a few useful cases (such as knowing what hashes the daemon will be
@@ -81,6 +80,5 @@ fn digest_config_methods(builder: &mut MethodsBuilder) {
 }
 
 #[starlark_module]
-pub(crate) fn register_digest_config_type(globals: &mut GlobalsBuilder) {
-    const DigestConfig: StarlarkValueAsType<StarlarkDigestConfig> = StarlarkValueAsType::new();
-}
+#[starlark_types(StarlarkDigestConfig as DigestConfig)]
+pub(crate) fn register_digest_config_type(globals: &mut GlobalsBuilder) {}

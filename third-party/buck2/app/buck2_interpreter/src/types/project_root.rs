@@ -23,7 +23,6 @@ use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Value;
 use starlark::values::starlark_value;
-use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 
 #[derive(Debug, PartialEq, Display, ProvidesStaticType, NoSerialize, Allocative)]
 pub struct StarlarkProjectRoot;
@@ -50,6 +49,5 @@ impl AllocFrozenValue for StarlarkProjectRoot {
 }
 
 #[starlark_module]
-pub fn register_project_root(globals: &mut GlobalsBuilder) {
-    const ProjectRoot: StarlarkValueAsType<StarlarkProjectRoot> = StarlarkValueAsType::new();
-}
+#[starlark_types(StarlarkProjectRoot as ProjectRoot)]
+pub fn register_project_root(globals: &mut GlobalsBuilder) {}

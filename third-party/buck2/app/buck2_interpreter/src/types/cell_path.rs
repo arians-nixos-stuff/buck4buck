@@ -28,7 +28,6 @@ use starlark::values::StarlarkValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 use starlark::values::starlark_value;
-use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 
 #[derive(Debug, PartialEq, Display, ProvidesStaticType, Allocative, Pagable)]
 pub struct StarlarkCellPath(pub CellPath);
@@ -81,6 +80,5 @@ fn cell_path_methods(builder: &mut MethodsBuilder) {
 }
 
 #[starlark_module]
-pub fn register_cell_path(globals: &mut GlobalsBuilder) {
-    const CellPath: StarlarkValueAsType<StarlarkCellPath> = StarlarkValueAsType::new();
-}
+#[starlark_types(StarlarkCellPath as CellPath)]
+pub fn register_cell_path(globals: &mut GlobalsBuilder) {}

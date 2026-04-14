@@ -40,7 +40,6 @@ use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueOfUncheckedGeneric;
 use starlark::values::none::NoneOr;
 use starlark::values::starlark_value;
-use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark_map::StarlarkHasher;
 
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
@@ -295,6 +294,7 @@ fn dependency_methods(builder: &mut MethodsBuilder) {
 }
 
 #[starlark_module]
-pub(crate) fn register_dependency(globals: &mut GlobalsBuilder) {
-    const Dependency: StarlarkValueAsType<DependencyGen<FrozenValue>> = StarlarkValueAsType::new();
-}
+#[starlark_types(
+    DependencyGen<FrozenValue> as Dependency
+)]
+pub(crate) fn register_dependency(globals: &mut GlobalsBuilder) {}

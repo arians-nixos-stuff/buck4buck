@@ -60,7 +60,6 @@ use starlark::values::ValueOf;
 use starlark::values::list::ListRef;
 use starlark::values::list::UnpackList;
 use starlark::values::starlark_value;
-use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::tuple::UnpackTuple;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use static_assertions::assert_eq_size;
@@ -1143,7 +1142,7 @@ fn command_line_inputs_methods(_builder: &mut MethodsBuilder) {
 }
 
 #[starlark_module]
-pub(crate) fn register_command_line_inputs(globals: &mut GlobalsBuilder) {
-    const CommandLineInputs: StarlarkValueAsType<StarlarkCommandLineInputs> =
-        StarlarkValueAsType::new();
-}
+#[starlark_types(
+    StarlarkCommandLineInputs as CommandLineInputs
+)]
+pub(crate) fn register_command_line_inputs(globals: &mut GlobalsBuilder) {}

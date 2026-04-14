@@ -63,7 +63,6 @@ use starlark::values::list::AllocList;
 use starlark::values::list::ListRef;
 use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::starlark_value;
-use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::typing::TypeCompiled;
 use starlark::values::typing::TypeInstanceId;
 use starlark::values::typing::TypeMatcher;
@@ -616,6 +615,7 @@ fn provider_field_parse_type<'v>(
 }
 
 #[starlark_module]
+#[starlark_types(AbstractProvider as Provider no_docs)]
 pub fn register_provider(builder: &mut GlobalsBuilder) {
     /// Create a field definition object which can be passed to `provider` type constructor.
     fn provider_field<'v>(
@@ -727,14 +727,4 @@ pub fn register_provider(builder: &mut GlobalsBuilder) {
             fields,
         ))
     }
-
-    /// Provider type, can be used in type expressions.
-    ///
-    /// # Examples
-    ///
-    /// ```python
-    /// def foo() -> list[Provider]:
-    ///     return [DefaultInfo()]
-    /// ```
-    const Provider: StarlarkValueAsType<AbstractProvider> = StarlarkValueAsType::new_no_docs();
 }

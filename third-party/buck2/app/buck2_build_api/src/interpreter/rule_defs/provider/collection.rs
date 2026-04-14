@@ -62,7 +62,6 @@ use starlark::values::ValueOfUnchecked;
 use starlark::values::list::ListRef;
 use starlark::values::none::NoneOr;
 use starlark::values::starlark_value;
-use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::type_repr::StarlarkTypeRepr;
 
 use crate::interpreter::rule_defs::provider::DefaultInfo;
@@ -745,7 +744,7 @@ pub mod tester {
 }
 
 #[starlark_module]
-pub(crate) fn register_provider_collection(globals: &mut GlobalsBuilder) {
-    const ProviderCollection: StarlarkValueAsType<ProviderCollectionGen<Value>> =
-        StarlarkValueAsType::new();
-}
+#[starlark_types(
+    ProviderCollectionGen<Value<'_>> as ProviderCollection
+)]
+pub(crate) fn register_provider_collection(globals: &mut GlobalsBuilder) {}

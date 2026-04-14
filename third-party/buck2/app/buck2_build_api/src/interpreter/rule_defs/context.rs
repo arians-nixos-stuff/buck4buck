@@ -48,7 +48,6 @@ use starlark::values::ValueTyped;
 use starlark::values::ValueTypedComplex;
 use starlark::values::none::NoneOr;
 use starlark::values::starlark_value;
-use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::structs::StructRef;
 use starlark::values::type_repr::StarlarkTypeRepr;
 
@@ -364,10 +363,8 @@ fn analysis_context_methods(builder: &mut MethodsBuilder) {
 }
 
 #[starlark_module]
-pub(crate) fn register_analysis_context(builder: &mut GlobalsBuilder) {
-    const AnalysisContext: StarlarkValueAsType<AnalysisContext> = StarlarkValueAsType::new();
-    const AnalysisActions: StarlarkValueAsType<AnalysisActions> = StarlarkValueAsType::new();
-}
+#[starlark_types(AnalysisContext<'_> as AnalysisContext, AnalysisActions<'_> as AnalysisActions)]
+pub(crate) fn register_analysis_context(builder: &mut GlobalsBuilder) {}
 
 pub static ANALYSIS_ACTIONS_METHODS_ACTIONS: LateBinding<fn(&mut MethodsBuilder)> =
     LateBinding::new("ANALYSIS_ACTIONS_METHODS_ACTIONS");

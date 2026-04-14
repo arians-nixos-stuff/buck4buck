@@ -25,7 +25,6 @@ use starlark::values::StarlarkValue;
 use starlark::values::Value;
 use starlark::values::ValueTyped;
 use starlark::values::starlark_value;
-use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark_map::StarlarkHasher;
 
 #[derive(
@@ -68,9 +67,8 @@ impl<'v> AllocValue<'v> for StarlarkDynamicValue {
 }
 
 #[starlark_module]
-pub(crate) fn register_dynamic_value(globals: &mut GlobalsBuilder) {
-    const DynamicValue: StarlarkValueAsType<StarlarkDynamicValue> = StarlarkValueAsType::new();
-}
+#[starlark_types(StarlarkDynamicValue as DynamicValue)]
+pub(crate) fn register_dynamic_value(globals: &mut GlobalsBuilder) {}
 
 /// A value produced by a dynamic action that can be consumed by other dynamic actions.
 ///

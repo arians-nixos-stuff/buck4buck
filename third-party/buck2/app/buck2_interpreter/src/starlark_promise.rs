@@ -37,7 +37,6 @@ use starlark::values::ValueTyped;
 use starlark::values::list::AllocList;
 use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::starlark_value;
-use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::typing::StarlarkCallable;
 
@@ -338,9 +337,8 @@ fn promise_methods(builder: &mut MethodsBuilder) {
 }
 
 #[starlark_module]
-pub fn register_promise(globals: &mut GlobalsBuilder) {
-    const Promise: StarlarkValueAsType<StarlarkPromise> = StarlarkValueAsType::new();
-}
+#[starlark_types(StarlarkPromise<'_> as Promise)]
+pub fn register_promise(globals: &mut GlobalsBuilder) {}
 
 #[cfg(test)]
 mod tests {

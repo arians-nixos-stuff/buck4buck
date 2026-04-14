@@ -36,7 +36,6 @@ use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::none::NoneOr;
 use starlark::values::starlark_value;
-use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 
 use crate::types::cell_path::StarlarkCellPath;
 use crate::types::cell_root::CellRoot;
@@ -311,14 +310,14 @@ fn label_methods(builder: &mut MethodsBuilder) {
     }
 }
 
+// TODO(nga): remove the `Label` alias. (T264813434)
 #[starlark_module]
-pub fn register_providers_label(globals: &mut GlobalsBuilder) {
-    // TODO(nga): remove this alias.
-    const Label: StarlarkValueAsType<StarlarkConfiguredProvidersLabel> = StarlarkValueAsType::new();
-    const ProvidersLabel: StarlarkValueAsType<StarlarkProvidersLabel> = StarlarkValueAsType::new();
-    const ConfiguredProvidersLabel: StarlarkValueAsType<StarlarkConfiguredProvidersLabel> =
-        StarlarkValueAsType::new();
-}
+#[starlark_types(
+    StarlarkConfiguredProvidersLabel as Label,
+    StarlarkProvidersLabel as ProvidersLabel,
+    StarlarkConfiguredProvidersLabel as ConfiguredProvidersLabel
+)]
+pub fn register_providers_label(globals: &mut GlobalsBuilder) {}
 
 #[cfg(test)]
 mod tests {

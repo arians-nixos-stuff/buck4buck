@@ -25,7 +25,6 @@ use starlark::starlark_simple_value;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::starlark_value;
-use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Input)]
@@ -85,7 +84,5 @@ impl StarlarkAttribute {
 }
 
 #[starlark_module]
-pub(crate) fn register_attr_type(globals: &mut GlobalsBuilder) {
-    /// Starlark type of the attribute object (for example, returned from `attrs.string()`).
-    const Attr: StarlarkValueAsType<StarlarkAttribute> = StarlarkValueAsType::new();
-}
+#[starlark_types(StarlarkAttribute as Attr)]
+pub(crate) fn register_attr_type(globals: &mut GlobalsBuilder) {}

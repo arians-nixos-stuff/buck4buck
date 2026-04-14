@@ -26,6 +26,7 @@ use serde::Serialize;
 use starlark::__derive_refs::serde::Serializer;
 use starlark::any::ProvidesStaticType;
 use starlark::const_frozen_string;
+use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
@@ -336,3 +337,10 @@ fn select_concat_methods(builder: &mut MethodsBuilder) {
         Ok(this.concat.0.len() as i32)
     }
 }
+
+#[starlark_module]
+#[starlark_types(
+    StarlarkSelectDict as SelectDict,
+    StarlarkSelectConcat as SelectConcat
+)]
+pub fn register_select_types(globals: &mut GlobalsBuilder) {}

@@ -19,7 +19,6 @@ use starlark::typing::ParamIsRequired;
 use starlark::typing::ParamSpec;
 use starlark::typing::Ty;
 use starlark::util::ArcStr;
-use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::typing::StarlarkCallableChecked;
 use starlark_map::small_map::SmallMap;
@@ -92,6 +91,10 @@ pub fn new_dynamic_actions_callable<'v>(
 }
 
 #[starlark_module]
+#[starlark_types(
+    StarlarkDynamicActions<'_> as DynamicActions,
+    FrozenStarlarkDynamicActionsCallable as DynamicActionsCallable
+)]
 pub(crate) fn register_dynamic_actions(globals: &mut GlobalsBuilder) {
     /// Create new dynamic action callable. Returned object will be callable,
     /// and the result of calling it can be passed to `ctx.actions.dynamic_output_new`.
@@ -110,8 +113,4 @@ pub(crate) fn register_dynamic_actions(globals: &mut GlobalsBuilder) {
     ) -> starlark::Result<DynamicActionsCallable<'v>> {
         Ok(new_dynamic_actions_callable(r#impl, attrs, &P_ACTIONS)?)
     }
-
-    const DynamicActions: StarlarkValueAsType<StarlarkDynamicActions> = StarlarkValueAsType::new();
-    const DynamicActionsCallable: StarlarkValueAsType<FrozenStarlarkDynamicActionsCallable> =
-        StarlarkValueAsType::new();
 }

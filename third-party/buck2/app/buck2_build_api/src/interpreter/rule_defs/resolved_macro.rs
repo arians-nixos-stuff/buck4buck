@@ -30,7 +30,6 @@ use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Value;
 use starlark::values::starlark_value;
-use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use static_assertions::assert_eq_size;
 
@@ -361,10 +360,10 @@ fn resolved_string_with_macros_methods(builder: &mut MethodsBuilder) {
 }
 
 #[starlark_module]
-pub(crate) fn register_string_with_macros(globals: &mut GlobalsBuilder) {
-    const ResolvedStringWithMacros: StarlarkValueAsType<ResolvedStringWithMacros> =
-        StarlarkValueAsType::new();
-}
+#[starlark_types(
+    ResolvedStringWithMacros as ResolvedStringWithMacros
+)]
+pub(crate) fn register_string_with_macros(globals: &mut GlobalsBuilder) {}
 
 #[cfg(test)]
 mod tests {

@@ -25,7 +25,6 @@ use starlark::typing::Ty;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::starlark_value;
-use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 
 /// Wrapper for `regex::Regex`.
 #[derive(ProvidesStaticType, Debug, NoSerialize, Allocative)]
@@ -114,6 +113,7 @@ fn regex_methods(builder: &mut MethodsBuilder) {
 }
 
 #[starlark_module]
+#[starlark_types(StarlarkBuckRegex as BuckRegex)]
 pub fn register_buck_regex(builder: &mut GlobalsBuilder) {
     /// Compile a regular expression from a string.
     ///
@@ -144,8 +144,6 @@ pub fn register_buck_regex(builder: &mut GlobalsBuilder) {
             )),
         }
     }
-
-    const BuckRegex: StarlarkValueAsType<StarlarkBuckRegex> = StarlarkValueAsType::new();
 }
 
 #[cfg(test)]

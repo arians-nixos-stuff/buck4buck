@@ -35,7 +35,6 @@ use starlark::values::list::UnpackList;
 use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::none::NoneOr;
 use starlark::values::starlark_value;
-use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 
 use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_value::StarlarkArtifactValue;
@@ -557,11 +556,11 @@ impl StarlarkActionSubError {
 }
 
 #[starlark_module]
-pub(crate) fn register_action_error_types(globals: &mut GlobalsBuilder) {
-    const ActionSubError: StarlarkValueAsType<StarlarkActionSubError> = StarlarkValueAsType::new();
-    const ActionErrorCtx: StarlarkValueAsType<StarlarkActionErrorContext> =
-        StarlarkValueAsType::new();
-}
+#[starlark_types(
+    StarlarkActionSubError as ActionSubError,
+    StarlarkActionErrorContext<'_> as ActionErrorCtx
+)]
+pub(crate) fn register_action_error_types(globals: &mut GlobalsBuilder) {}
 
 /// Global methods for testing starlark action error handler.
 #[starlark_module]

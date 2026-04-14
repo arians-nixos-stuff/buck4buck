@@ -40,7 +40,6 @@ use starlark::values::ValueError;
 use starlark::values::ValueLike;
 use starlark::values::list::UnpackList;
 use starlark::values::starlark_value;
-use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::type_repr::StarlarkTypeRepr;
 
 use crate::types::cell_path::StarlarkCellPath;
@@ -348,8 +347,8 @@ impl<'v> LabelArg<'v> {
 }
 
 #[starlark_module]
-pub fn register_target_label(globals: &mut GlobalsBuilder) {
-    const TargetLabel: StarlarkValueAsType<StarlarkTargetLabel> = StarlarkValueAsType::new();
-    const ConfiguredTargetLabel: StarlarkValueAsType<StarlarkConfiguredTargetLabel> =
-        StarlarkValueAsType::new();
-}
+#[starlark_types(
+    StarlarkTargetLabel as TargetLabel,
+    StarlarkConfiguredTargetLabel as ConfiguredTargetLabel
+)]
+pub fn register_target_label(globals: &mut GlobalsBuilder) {}

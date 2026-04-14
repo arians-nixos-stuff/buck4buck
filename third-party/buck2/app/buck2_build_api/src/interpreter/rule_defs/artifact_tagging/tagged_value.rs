@@ -25,7 +25,6 @@ use starlark::values::Value;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::starlark_value;
-use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 
 use super::ArtifactTag;
 use super::TaggedVisitor;
@@ -102,6 +101,5 @@ impl<V: ValueLifetimeless> StarlarkTaggedValueGen<V> {
 }
 
 #[starlark_module]
-pub(crate) fn register_tagged_value(globals: &mut GlobalsBuilder) {
-    const TaggedValue: StarlarkValueAsType<StarlarkTaggedValue> = StarlarkValueAsType::new();
-}
+#[starlark_types(StarlarkTaggedValue<'_> as TaggedValue)]
+pub(crate) fn register_tagged_value(globals: &mut GlobalsBuilder) {}

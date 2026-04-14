@@ -45,7 +45,6 @@ use starlark::values::dict::UnpackDictEntries;
 use starlark::values::list::AllocList;
 use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::starlark_value;
-use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark_map::small_map::SmallMap;
 
 use crate::anon_targets::AnonTargetKey;
@@ -238,10 +237,8 @@ fn anon_targets_methods(builder: &mut MethodsBuilder) {
 }
 
 #[starlark_module]
-pub(crate) fn register_anon_target_types(globals: &mut GlobalsBuilder) {
-    const AnonTarget: StarlarkValueAsType<StarlarkAnonTarget> = StarlarkValueAsType::new();
-    const AnonTargets: StarlarkValueAsType<StarlarkAnonTargets> = StarlarkValueAsType::new();
-}
+#[starlark_types(StarlarkAnonTarget<'_> as AnonTarget, StarlarkAnonTargets<'_> as AnonTargets)]
+pub(crate) fn register_anon_target_types(globals: &mut GlobalsBuilder) {}
 
 pub(crate) fn init_register_anon_target_types() {
     REGISTER_BUCK2_ANON_TARGETS_GLOBALS.init(register_anon_target_types);

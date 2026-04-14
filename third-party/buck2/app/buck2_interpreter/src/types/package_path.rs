@@ -29,7 +29,6 @@ use starlark::values::Value;
 use starlark::values::ValueError;
 use starlark::values::ValueLike;
 use starlark::values::starlark_value;
-use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 
 #[derive(
     Clone,
@@ -108,6 +107,5 @@ fn package_path_methods(builder: &mut MethodsBuilder) {
 }
 
 #[starlark_module]
-pub fn register_package_path(globals: &mut GlobalsBuilder) {
-    const PackagePath: StarlarkValueAsType<StarlarkPackagePath> = StarlarkValueAsType::new();
-}
+#[starlark_types(StarlarkPackagePath as PackagePath)]
+pub fn register_package_path(globals: &mut GlobalsBuilder) {}

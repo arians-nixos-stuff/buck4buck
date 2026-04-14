@@ -37,7 +37,6 @@ use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueTypedComplex;
 use starlark::values::starlark_value;
-use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::type_repr::StarlarkTypeRepr;
 
 use crate::interpreter::build_context::BuildContext;
@@ -240,6 +239,7 @@ impl<'v> StarlarkValue<'v> for AllPlugins {}
 /// # Result: Both :lib and :bin get :my_derive_impl configured for their own exec platforms
 /// ```
 #[starlark_module]
+#[starlark_types(StarlarkPluginKind as PluginKind)]
 fn register_plugins_methods(r: &mut GlobalsBuilder) {
     /// Create a new plugin kind.
     ///
@@ -278,9 +278,6 @@ fn register_plugins_methods(r: &mut GlobalsBuilder) {
     /// This value is not supported on `uses_plugins` at this time, and hence it is not useful on
     /// `pulls_plugins` either.
     const All: AllPlugins = AllPlugins;
-
-    /// Type symbol for `PluginKind`.
-    const PluginKind: StarlarkValueAsType<StarlarkPluginKind> = StarlarkValueAsType::new();
 }
 
 pub(crate) fn register_plugins(globals: &mut GlobalsBuilder) {

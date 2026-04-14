@@ -64,7 +64,6 @@ use starlark::values::Value;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::starlark_value;
-use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::type_repr::StarlarkTypeRepr;
 
 use crate::actions::impls::run::DepFilesPlaceholderArtifactPathMapper;
@@ -369,7 +368,7 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike<'v> for StarlarkWriteJsonCommandLi
 }
 
 #[starlark_module]
-pub(crate) fn register_write_json_cli_args(globals: &mut GlobalsBuilder) {
-    const WriteJsonCliArgs: StarlarkValueAsType<StarlarkWriteJsonCommandLineArg> =
-        StarlarkValueAsType::new();
-}
+#[starlark_types(
+    StarlarkWriteJsonCommandLineArg<'_> as WriteJsonCliArgs
+)]
+pub(crate) fn register_write_json_cli_args(globals: &mut GlobalsBuilder) {}

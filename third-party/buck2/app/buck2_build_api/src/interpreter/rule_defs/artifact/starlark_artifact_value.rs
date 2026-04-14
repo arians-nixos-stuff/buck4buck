@@ -33,7 +33,6 @@ use starlark::values::StarlarkValue;
 use starlark::values::Value;
 use starlark::values::dict::Dict;
 use starlark::values::starlark_value;
-use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 
 #[derive(Debug, ProvidesStaticType, NoSerialize, Allocative)]
 pub struct StarlarkArtifactValue {
@@ -185,9 +184,8 @@ fn artifact_value_methods(builder: &mut MethodsBuilder) {
 }
 
 #[starlark_module]
-pub(crate) fn register_artifact_value(globals: &mut GlobalsBuilder) {
-    const ArtifactValue: StarlarkValueAsType<StarlarkArtifactValue> = StarlarkValueAsType::new();
-}
+#[starlark_types(StarlarkArtifactValue as ArtifactValue)]
+pub(crate) fn register_artifact_value(globals: &mut GlobalsBuilder) {}
 
 #[cfg(test)]
 mod tests {

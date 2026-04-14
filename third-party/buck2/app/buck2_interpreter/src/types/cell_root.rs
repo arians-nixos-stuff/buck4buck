@@ -24,7 +24,6 @@ use starlark::starlark_simple_value;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::starlark_value;
-use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 
 #[derive(Debug, PartialEq, Display, ProvidesStaticType, NoSerialize, Allocative)]
 pub struct CellRoot(CellPath);
@@ -62,6 +61,5 @@ impl<'v> StarlarkValue<'v> for CellRoot {
 fn cell_root_methods(_builder: &mut MethodsBuilder) {}
 
 #[starlark_module]
-pub fn register_cell_root(globals: &mut GlobalsBuilder) {
-    const CellRoot: StarlarkValueAsType<CellRoot> = StarlarkValueAsType::new();
-}
+#[starlark_types(CellRoot as CellRoot)]
+pub fn register_cell_root(globals: &mut GlobalsBuilder) {}

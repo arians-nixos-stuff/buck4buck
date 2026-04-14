@@ -31,7 +31,6 @@ use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 use starlark::values::starlark_value;
-use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 
 use crate::interpreter::rule_defs::artifact_tagging::StarlarkTaggedCommandLine;
 use crate::interpreter::rule_defs::artifact_tagging::StarlarkTaggedValue;
@@ -162,6 +161,5 @@ fn artifact_tag_methods(_: &mut MethodsBuilder) {
 }
 
 #[starlark_module]
-pub(crate) fn register_artifact_tag(globals: &mut GlobalsBuilder) {
-    const ArtifactTag: StarlarkValueAsType<ArtifactTag> = StarlarkValueAsType::new();
-}
+#[starlark_types(ArtifactTag as ArtifactTag)]
+pub(crate) fn register_artifact_tag(globals: &mut GlobalsBuilder) {}

@@ -47,7 +47,6 @@ use starlark::values::dict::DictRef;
 use starlark::values::dict::DictType;
 use starlark::values::none::NoneOr;
 use starlark::values::starlark_value;
-use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 
 /// Representation of `select()` in Starlark.
 #[derive(Debug, ProvidesStaticType, NoSerialize, Allocative)] // TODO selector should probably support serializing
@@ -310,9 +309,8 @@ where
 }
 
 #[starlark_module]
+#[starlark_types(StarlarkSelector<'_> as Select)]
 pub fn register_select(globals: &mut GlobalsBuilder) {
-    const Select: StarlarkValueAsType<StarlarkSelector> = StarlarkValueAsType::new();
-
     fn select<'v>(
         #[starlark(require = pos)] d: ValueOf<'v, DictType<StringValue<'v>, Value<'v>>>,
     ) -> starlark::Result<StarlarkSelector<'v>> {

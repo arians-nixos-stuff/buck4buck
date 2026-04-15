@@ -40,6 +40,7 @@ use starlark::any::ProvidesStaticType;
 use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::values::NoSerialize;
+use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
@@ -76,13 +77,22 @@ enum CommandExecutorConfigErrors {
     ReGangNumOfWorkersNotAnInt(String),
 }
 
-#[derive(Debug, Display, NoSerialize, ProvidesStaticType, Allocative)]
+#[derive(
+    Debug,
+    Display,
+    NoSerialize,
+    ProvidesStaticType,
+    Allocative,
+    StarlarkPagable
+)]
 #[display("{:?}", _0)]
-pub struct StarlarkCommandExecutorConfig(pub Arc<CommandExecutorConfig>);
+pub struct StarlarkCommandExecutorConfig(
+    #[starlark_pagable(pagable)] pub Arc<CommandExecutorConfig>,
+);
 
 starlark_simple_value!(StarlarkCommandExecutorConfig);
 
-#[starlark_value(type = "CommandExecutorConfig")]
+#[starlark_value(type = "CommandExecutorConfig", skip_pagable)]
 impl<'v> StarlarkValue<'v> for StarlarkCommandExecutorConfig {}
 
 #[starlark_module]

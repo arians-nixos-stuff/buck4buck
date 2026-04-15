@@ -25,6 +25,7 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::values::Freeze;
 use starlark::values::NoSerialize;
+use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
@@ -53,7 +54,8 @@ use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
     ProvidesStaticType,
     NoSerialize,
     Allocative,
-    PagablePanic
+    PagablePanic,
+    StarlarkPagable
 )]
 pub struct ArtifactTag {
     identity: u64,
@@ -80,7 +82,7 @@ impl fmt::Display for ArtifactTag {
 
 starlark_simple_value!(ArtifactTag);
 
-#[starlark_value(type = "ArtifactTag")]
+#[starlark_value(type = "ArtifactTag", skip_pagable)]
 impl<'v> StarlarkValue<'v> for ArtifactTag {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();

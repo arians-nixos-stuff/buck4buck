@@ -30,7 +30,6 @@
 
 use std::collections::VecDeque;
 
-use rand::RngExt;
 use serde::Deserialize;
 use serde::Serialize;
 use superconsole::Dimensions;
@@ -162,7 +161,7 @@ impl Game {
                 options.push((position, sum));
             }
         }
-        let roll = rand::rng().random_range(0.0..sum);
+        let roll = rand::random_range(0.0..sum);
         let idx = options
             .binary_search_by(|(_, chance)| chance.partial_cmp(&roll).unwrap())
             .unwrap_or_else(|i| i);

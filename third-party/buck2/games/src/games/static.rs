@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use rand::RngExt;
 use superconsole::Dimensions;
 use superconsole::Lines;
 use superconsole::components::Component;
@@ -23,9 +22,9 @@ pub fn shuffle(framebuffer: &mut FrameBuffer) {
     for x in 0..160 {
         for y in 0..80 {
             framebuffer.display[y][x] = Color::Rgb {
-                r: rand::rng().random(),
-                g: rand::rng().random(),
-                b: rand::rng().random(),
+                r: rand::random(),
+                g: rand::random(),
+                b: rand::random(),
             }
         }
     }

@@ -28,7 +28,6 @@
 //! - **90/10 spawn distribution**: 90% chance of 2, 10% chance of 4,
 //!   matching the original 2048 game's probabilities.
 
-use rand::RngExt;
 use serde::Deserialize;
 use serde::Serialize;
 use superconsole::Dimensions;
@@ -112,12 +111,8 @@ impl Game {
                 }
             }
         }
-        if let Some(&(x, y)) = empty.get(rand::rng().random_range(0..empty.len())) {
-            self.board[y][x] = if rand::rng().random_range(0..10) < 9 {
-                2
-            } else {
-                4
-            };
+        if let Some(&(x, y)) = empty.get(rand::random_range(0..empty.len())) {
+            self.board[y][x] = if rand::random_range(0..10) < 9 { 2 } else { 4 };
             self.last_spawned = Some((x, y));
         }
     }

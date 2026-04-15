@@ -50,7 +50,6 @@ use futures::channel::mpsc;
 use futures::channel::mpsc::UnboundedSender;
 use futures::pin_mut;
 use futures::select;
-use rand::Rng;
 use tokio::runtime::Builder;
 
 use crate::daemon_lower_priority::daemon_lower_priority;
@@ -157,9 +156,7 @@ fn verify_current_daemon(daemon_dir: &DaemonDir) -> buck2_error::Result<()> {
 }
 
 fn gen_auth_token() -> String {
-    (0..20)
-        .map(|_| rand::rng().random_range('a'..='z'))
-        .collect()
+    (0..20).map(|_| rand::random_range('a'..='z')).collect()
 }
 
 fn terminate_on_panic() {
@@ -688,7 +685,7 @@ mod tests {
     use buck2_server::daemon::server::BuckdServerDelegate;
     use buck2_server::daemon::server::BuckdServerInitPreferences;
     use dupe::Dupe;
-    use rand::RngCore;
+    use rand::Rng as _;
     use rand::SeedableRng;
     use tokio::runtime::Handle;
 

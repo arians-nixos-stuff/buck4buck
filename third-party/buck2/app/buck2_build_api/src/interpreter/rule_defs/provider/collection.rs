@@ -468,6 +468,11 @@ impl FrozenProviderCollection {
     pub fn provider_ids(&self) -> Vec<&ProviderId> {
         self.providers.keys().map(|k| &**k).collect()
     }
+
+    /// Iterate over `(ProviderId, FrozenValue)` pairs in this collection.
+    pub fn iter_providers(&self) -> impl Iterator<Item = (&ProviderId, &FrozenValue)> {
+        self.providers.iter().map(|(k, v)| (&**k, v))
+    }
 }
 
 /// Thin wrapper around `FrozenValue` that can only be constructed if that value is a `FrozenProviderCollection`

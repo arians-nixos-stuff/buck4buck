@@ -187,3 +187,10 @@ async def test_configured_target_node_attrs(buck: Buck) -> None:
     await buck.bxl(
         "//bxl:configured_target_node_attrs.bxl:attrs_test",
     )
+
+
+@buck_test(inplace=False, data_dir="bxl/simple")
+async def test_bxl_providers_info(buck: Buck) -> None:
+    await buck.bxl(
+        "//bxl/providers_info.bxl:providers_info_test",
+    )

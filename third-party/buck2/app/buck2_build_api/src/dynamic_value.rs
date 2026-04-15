@@ -11,6 +11,7 @@
 use allocative::Allocative;
 use buck2_core::deferred::dynamic::DynamicLambdaResultsKey;
 use dupe::Dupe;
+use pagable::Pagable;
 
 #[derive(
     Clone,
@@ -20,7 +21,8 @@ use dupe::Dupe;
     Hash,
     Debug,
     Allocative,
-    derive_more::Display
+    derive_more::Display,
+    Pagable
 )]
 #[display("{}", self.dynamic_lambda_results_key)]
 pub struct DynamicValue {

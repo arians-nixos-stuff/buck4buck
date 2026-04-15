@@ -21,6 +21,7 @@ use starlark::starlark_module;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
+use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::Value;
 use starlark::values::ValueTyped;
@@ -32,14 +33,16 @@ use starlark_map::StarlarkHasher;
     ProvidesStaticType,
     derive_more::Display,
     Allocative,
-    NoSerialize
+    NoSerialize,
+    StarlarkPagable
 )]
 #[display("DynamicValue<{}>", self.dynamic_value)]
 pub struct StarlarkDynamicValue {
+    #[starlark_pagable(pagable)]
     pub(crate) dynamic_value: DynamicValue,
 }
 
-#[starlark_value(type = "DynamicValue", StarlarkTypeRepr, UnpackValue)]
+#[starlark_value(type = "DynamicValue", StarlarkTypeRepr, UnpackValue, skip_pagable)]
 impl<'v> StarlarkValue<'v> for StarlarkDynamicValue {
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> starlark::Result<()> {
         self.dynamic_value.hash(hasher);

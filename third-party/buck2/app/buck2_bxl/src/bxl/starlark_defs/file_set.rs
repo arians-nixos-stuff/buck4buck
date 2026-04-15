@@ -30,6 +30,7 @@ use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
+use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
@@ -188,13 +189,13 @@ impl Deref for StarlarkFileSet {
     }
 }
 
-#[derive(Debug, Display, ProvidesStaticType, Clone, Allocative)]
+#[derive(Debug, Display, ProvidesStaticType, Clone, Allocative, StarlarkPagable)]
 #[derive(NoSerialize)]
-pub(crate) struct StarlarkFileNode(pub(crate) CellPath);
+pub(crate) struct StarlarkFileNode(#[starlark_pagable(pagable)] pub(crate) CellPath);
 
 starlark_simple_value!(StarlarkFileNode);
 
-#[starlark_value(type = "bxl.FileNode")]
+#[starlark_value(type = "bxl.FileNode", skip_pagable)]
 impl<'v> StarlarkValue<'v> for StarlarkFileNode {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();

@@ -26,6 +26,7 @@ use buck2_build_api::actions::query::PackageLabelOption;
 use buck2_build_api::analysis::AnalysisResult;
 use buck2_build_api::bxl::unconfigured_attribute::StarlarkCoercedAttr;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::configuration_info::ConfigurationInfo;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_core::cells::cell_path::CellPath;
@@ -744,6 +745,35 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
                 .deps()
                 .map(|node| StarlarkConfiguredTargetNode(node.dupe())),
         ))
+    }
+
+    /// Returns a `ConfigurationInfo` representing this node's configuration,
+    /// or `None` if the configuration is not bound.
+    ///
+    /// The returned `ConfigurationInfo` has a `constraints` dict mapping
+    /// `TargetLabel` (constraint settings) to `ConstraintValueInfo` (constraint values),
+    /// and an empty `values` dict.
+    ///
+    /// Sample usage:
+    /// ```python
+    /// def _impl_configuration_info(ctx):
+    ///     node = ctx.configured_targets("my_cell//bin:the_binary")
+    ///     cfg_info = node.configuration_info()
+    ///     if cfg_info != None:
+    ///         for setting, value in cfg_info.constraints.items():
+    ///             ctx.output.print(str(setting) + "=" + str(value))
+    /// ```
+    fn configuration_info<'v>(
+        this: &StarlarkConfiguredTargetNode,
+        heap: Heap<'v>,
+    ) -> starlark::Result<NoneOr<Value<'v>>> {
+        let cfg = this.0.label().cfg();
+        if !cfg.is_bound() {
+            return Ok(NoneOr::None);
+        }
+        let data = cfg.data()?;
+        let info = ConfigurationInfo::from_configuration_data(data, heap);
+        Ok(NoneOr::Other(heap.alloc(info)))
     }
 }
 

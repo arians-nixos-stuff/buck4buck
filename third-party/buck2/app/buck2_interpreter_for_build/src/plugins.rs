@@ -31,6 +31,7 @@ use starlark::values::Freezer;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::ProvidesStaticType;
+use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
@@ -111,13 +112,14 @@ impl<'v> AllocValue<'v> for StarlarkPluginKind {
     Debug,
     ProvidesStaticType,
     NoSerialize,
-    Allocative
+    Allocative,
+    StarlarkPagable
 )]
 #[display("{_0}")]
-pub struct FrozenStarlarkPluginKind(PluginKind);
+pub struct FrozenStarlarkPluginKind(#[starlark_pagable(pagable)] PluginKind);
 starlark_simple_value!(FrozenStarlarkPluginKind);
 
-#[starlark_value(type = "PluginKind")]
+#[starlark_value(type = "PluginKind", skip_pagable)]
 impl<'v> StarlarkValue<'v> for FrozenStarlarkPluginKind {
     type Canonical = StarlarkPluginKind;
 }
@@ -174,12 +176,19 @@ impl<'v> UnpackValue<'v> for PluginKindArg {
 }
 
 /// The value yielded by `plugins.ALL`
-#[derive(Display, Debug, Allocative, ProvidesStaticType, NoSerialize)]
+#[derive(
+    Display,
+    Debug,
+    Allocative,
+    ProvidesStaticType,
+    NoSerialize,
+    StarlarkPagable
+)]
 #[display("<all_plugins>")]
 pub struct AllPlugins;
 starlark_simple_value!(AllPlugins);
 
-#[starlark_value(type = "AllPlugins")]
+#[starlark_value(type = "AllPlugins", skip_pagable)]
 impl<'v> StarlarkValue<'v> for AllPlugins {}
 
 /// This is a global namespace, to allow the creation and management

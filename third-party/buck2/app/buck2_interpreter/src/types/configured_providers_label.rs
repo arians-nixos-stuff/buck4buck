@@ -30,6 +30,7 @@ use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::values::Freeze;
 use starlark::values::Heap;
+use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::StringValue;
 use starlark::values::Trace;
@@ -51,11 +52,21 @@ impl StarlarkConfiguredProvidersLabel {
 }
 
 /// Container for `ConfiguredProvidersLabel` that gives users access to things like package, cell, etc. This can also be properly stringified by our forthcoming `CommandLine` object
-#[derive(Clone, Debug, Display, Trace, Freeze, ProvidesStaticType, Allocative)]
+#[derive(
+    Clone,
+    Debug,
+    Display,
+    Trace,
+    Freeze,
+    ProvidesStaticType,
+    Allocative,
+    StarlarkPagable
+)]
 #[display("{}", label)]
 #[repr(C)]
 pub struct StarlarkConfiguredProvidersLabel {
     #[freeze(identity)]
+    #[starlark_pagable(pagable)]
     label: ConfiguredProvidersLabel,
 }
 
@@ -80,7 +91,7 @@ impl StarlarkConfiguredProvidersLabel {
     }
 }
 
-#[starlark_value(type = "Label")]
+#[starlark_value(type = "Label", skip_pagable)]
 impl<'v> StarlarkValue<'v> for StarlarkConfiguredProvidersLabel
 where
     Self: ProvidesStaticType<'v>,
@@ -212,13 +223,15 @@ impl StarlarkProvidersLabel {
     ProvidesStaticType,
     Allocative,
     Serialize,
-    Pagable
+    Pagable,
+    StarlarkPagable
 )]
 #[display("{}", label)]
 #[repr(C)]
 #[serde(transparent)]
 pub struct StarlarkProvidersLabel {
     #[freeze(identity)]
+    #[starlark_pagable(pagable)]
     label: ProvidersLabel,
 }
 
@@ -230,7 +243,7 @@ impl StarlarkProvidersLabel {
     }
 }
 
-#[starlark_value(type = "ProvidersLabel")]
+#[starlark_value(type = "ProvidersLabel", skip_pagable)]
 impl<'v> StarlarkValue<'v> for StarlarkProvidersLabel
 where
     Self: ProvidesStaticType<'v>,

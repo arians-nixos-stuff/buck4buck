@@ -16,6 +16,7 @@ use starlark::static_starlark_value;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
+use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::Value;
 use starlark::values::starlark_value;
@@ -30,12 +31,13 @@ use starlark::values::starlark_value;
     ProvidesStaticType,
     Allocative,
     NoSerialize,
-    Display
+    Display,
+    StarlarkPagable
 )]
 #[display("{:?}", self)]
 pub struct OpaqueMetadata;
 
-#[starlark_value(type = "OpaqueMetadata")]
+#[starlark_value(type = "OpaqueMetadata", skip_pagable)]
 impl<'v> StarlarkValue<'v> for OpaqueMetadata {}
 
 static_starlark_value!(OPAQUE_METADATA: OpaqueMetadata = OpaqueMetadata);

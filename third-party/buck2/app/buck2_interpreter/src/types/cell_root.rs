@@ -22,11 +22,20 @@ use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::values::NoSerialize;
+use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::starlark_value;
 
-#[derive(Debug, PartialEq, Display, ProvidesStaticType, NoSerialize, Allocative)]
-pub struct CellRoot(CellPath);
+#[derive(
+    Debug,
+    PartialEq,
+    Display,
+    ProvidesStaticType,
+    NoSerialize,
+    Allocative,
+    StarlarkPagable
+)]
+pub struct CellRoot(#[starlark_pagable(pagable)] CellPath);
 
 impl CellRoot {
     pub fn new(name: CellName) -> Self {
@@ -43,7 +52,7 @@ impl CellRoot {
 
 starlark_simple_value!(CellRoot);
 
-#[starlark_value(type = "CellRoot")]
+#[starlark_value(type = "CellRoot", skip_pagable)]
 impl<'v> StarlarkValue<'v> for CellRoot {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();

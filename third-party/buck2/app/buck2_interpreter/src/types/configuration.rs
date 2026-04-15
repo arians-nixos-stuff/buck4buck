@@ -18,15 +18,24 @@ use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::values::NoSerialize;
+use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::starlark_value;
 
-#[derive(Debug, PartialEq, Display, ProvidesStaticType, NoSerialize, Allocative)]
-pub struct StarlarkConfiguration(pub ConfigurationData);
+#[derive(
+    Debug,
+    PartialEq,
+    Display,
+    ProvidesStaticType,
+    NoSerialize,
+    Allocative,
+    StarlarkPagable
+)]
+pub struct StarlarkConfiguration(#[starlark_pagable(pagable)] pub ConfigurationData);
 
 starlark_simple_value!(StarlarkConfiguration);
 
-#[starlark_value(type = "Configuration")]
+#[starlark_value(type = "Configuration", skip_pagable)]
 impl<'v> StarlarkValue<'v> for StarlarkConfiguration {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();

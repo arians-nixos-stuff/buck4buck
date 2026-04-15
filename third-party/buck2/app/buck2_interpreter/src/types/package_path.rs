@@ -24,6 +24,7 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
+use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::Value;
 use starlark::values::ValueError;
@@ -41,10 +42,12 @@ use starlark::values::starlark_value;
     From,
     ProvidesStaticType,
     Serialize,
-    Allocative
+    Allocative,
+    StarlarkPagable
 )]
 #[serde(transparent)]
 pub struct StarlarkPackagePath {
+    #[starlark_pagable(pagable)]
     pkg: PackageLabel,
 }
 
@@ -60,7 +63,7 @@ impl StarlarkPackagePath {
     }
 }
 
-#[starlark_value(type = "PackagePath")]
+#[starlark_value(type = "PackagePath", skip_pagable)]
 impl<'v> StarlarkValue<'v> for StarlarkPackagePath {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();

@@ -32,6 +32,7 @@ use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::values::Heap;
+use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::StringValue;
 use starlark::values::UnpackValue;
@@ -59,10 +60,12 @@ use crate::types::package_path::StarlarkPackagePath;
     From,
     ProvidesStaticType,
     Serialize,
-    Allocative
+    Allocative,
+    StarlarkPagable
 )]
 #[serde(transparent)]
 pub struct StarlarkTargetLabel {
+    #[starlark_pagable(pagable)]
     label: TargetLabel,
 }
 
@@ -78,7 +81,7 @@ impl StarlarkTargetLabel {
     }
 }
 
-#[starlark_value(type = "TargetLabel")]
+#[starlark_value(type = "TargetLabel", skip_pagable)]
 impl<'v> StarlarkValue<'v> for StarlarkTargetLabel {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
@@ -177,10 +180,12 @@ fn label_methods(builder: &mut MethodsBuilder) {
     From,
     ProvidesStaticType,
     Serialize,
-    Allocative
+    Allocative,
+    StarlarkPagable
 )]
 #[serde(transparent)]
 pub struct StarlarkConfiguredTargetLabel {
+    #[starlark_pagable(pagable)]
     label: ConfiguredTargetLabel,
 }
 
@@ -196,7 +201,7 @@ impl StarlarkConfiguredTargetLabel {
     }
 }
 
-#[starlark_value(type = "ConfiguredTargetLabel")]
+#[starlark_value(type = "ConfiguredTargetLabel", skip_pagable)]
 impl<'v> StarlarkValue<'v> for StarlarkConfiguredTargetLabel {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();

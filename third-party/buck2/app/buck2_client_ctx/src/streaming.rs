@@ -74,7 +74,9 @@ fn update_events_ctx<T: StreamingCommand>(
                 .health_check_config
                 .enable_health_checks
         })
-        .unwrap_or(false);
+        .unwrap_or(false)
+        // Force-enable health checks when the test override is set.
+        || std::env::var_os("BUCK2_TEST_SLOW_BUILD_CHECK").is_some();
 
     let (
         health_check_tags_receiver,

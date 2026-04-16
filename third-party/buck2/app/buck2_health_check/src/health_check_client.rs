@@ -92,6 +92,7 @@ impl HealthCheckClientInner {
             health_check_service,
         }
     }
+
     fn create_service(health_check_dir: AbsNormPathBuf) -> Box<dyn HealthCheckService> {
         #[cfg(fbcode_build)]
         {

@@ -26,9 +26,7 @@ use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::memory;
 use buck2_core::buck2_env;
 use buck2_core::logging::LogConfigurationReloadHandle;
-use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
-use buck2_error::buck2_error;
 use buck2_error::conversion::clap::buck_error_clap_parser;
 use buck2_events::daemon_id::DaemonId;
 use buck2_events::daemon_id::set_daemon_id_for_panics;
@@ -473,8 +471,8 @@ impl DaemonCommand {
 
     /// We start a dedicated thread to periodically check that the files in the daemon
     /// dir still reflect that we are the current buckd and verify that when you connect
-    /// to the server it is our server. Also checks that the project root (working
-    /// directory) is still accessible.
+    /// to the server it is our server. Also checks that the project root is still
+    /// accessible.
     /// It gets a dedicated thread so that if somehow the main runtime gets all jammed up,
     /// this will still run (and presumably connecting to the server or our request would
     /// then fail and we'd do a hard shutdown).
@@ -487,9 +485,14 @@ impl DaemonCommand {
         let this_rt = Builder::new_current_thread().enable_all().build().unwrap();
 
         this_rt.block_on(async move {
-            let mut inaccessible_count: u64 = 0;
-            let mut returned_count: u64 = 0;
-            let mut last_inaccessible_error: Option<std::io::Error> = None;
+            let checker_interval_seconds = buck2_env!(
+                "BUCK2_TESTING_CHECKER_INTERVAL_SECONDS",
+                type = u64,
+                applicability = testing
+            )
+            .ok()
+            .flatten()
+            .unwrap_or(checker_interval_seconds);
 
             loop {
                 tokio::time::sleep(Duration::from_secs(checker_interval_seconds)).await;
@@ -509,75 +512,18 @@ impl DaemonCommand {
                     }
                 };
 
-                // Check if the working directory has gone stale. This is increasingly
+                // Check if the project root has gone stale. This is increasingly
                 // important as people use more temporary checkouts.
-                //
-                // We log soft errors to track:
-                // 1. How often the working directory actually becomes inaccessible in practice.
-                // 2. Whether the error is recoverable based on our current detection methods.
-                //
-                // This data will help us determine how to turn this into an immediate
-                // daemon shutdown.
-                match std::fs::metadata(&project_root).map(|_| ()) {
-                    Err(e) => {
-                        if inaccessible_count == returned_count {
-                            inaccessible_count += 1;
-                            let err = buck2_error!(
-                                buck2_error::ErrorTag::Environment,
-                                "Working directory is no longer accessible \
-                                 (inaccessible_count={}, returned_count={}, error={:#})",
-                                inaccessible_count, returned_count, e
-                            );
-                            let raw_os_error = e.raw_os_error();
-                            last_inaccessible_error = Some(e);
-                            let _ignored = buck2_client_ctx::eprintln!("{:#}", err);
-                            if inaccessible_count == 1 {
-                                let _ignored = soft_error!(
-                                    "project_root_inaccessible_first", err, quiet: true,
-                                    // Log at least one sample per error code.
-                                    low_cardinality_key_for_additional_logview_samples: Some(Box::new(
-                                        raw_os_error.map_or("none".to_owned(), |c| c.to_string())
-                                    )),
-                                );
-                            } else {
-                                let _ignored = soft_error!("project_root_inaccessible_again", err, quiet: true);
-                            }
-                        }
-                        // TODO: hard shutdown when working directory is inaccessible
-                    }
-                    Ok(_) => {
-                        if inaccessible_count > returned_count {
-                            returned_count += 1;
-                            let recovered_error = last_inaccessible_error.take();
-                            let msg = format!(
-                                "Working directory accessibility returned \
-                                 (inaccessible_count={}, returned_count={}, \
-                                 recovered_error={})",
-                                inaccessible_count, returned_count,
-                                recovered_error.as_ref().map_or("(none)".to_owned(), |e| format!("{:#}", e)),
-                            );
-                            let _ignored = buck2_client_ctx::eprintln!("{}", msg);
-                            let err = buck2_error!(
-                                buck2_error::ErrorTag::Environment,
-                                "{}",
-                                msg
-                            );
-                            if returned_count == 1 {
-                                let raw_os_error =
-                                recovered_error.as_ref().and_then(|e| e.raw_os_error());
-                                let _ignored = soft_error!(
-                                    "project_root_returned_first", err,
-                                    quiet: true,
-                                    // Log at least one sample per error code.
-                                    low_cardinality_key_for_additional_logview_samples: Some(Box::new(
-                                        raw_os_error.map_or("none".to_owned(), |c| c.to_string())
-                                    )),
-                                );
-                            } else {
-                                let _ignored = soft_error!("project_root_returned_again", err, quiet: true);
-                            }
-                        }
-                    }
+                let dir_check = tokio::fs::metadata(&project_root).await;
+                if let Err(e) = dir_check {
+                    let msg = format!(
+                        "Project root {} is no longer accessible: {:#}",
+                        project_root.display(),
+                        e
+                    );
+                    let _ignored = buck2_client_ctx::eprintln!("{}", msg);
+
+                    let _ignored = hard_shutdown_sender.unbounded_send(msg);
                 }
             }
         })

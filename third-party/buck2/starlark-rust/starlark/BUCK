@@ -134,7 +134,11 @@ cli.deployer(
                         cli.architecture.X86_64,
                     ],
                 ),
-                cli.platform.macos(),
+                cli.platform.macos(
+                    architectures = [
+                        cli.architecture.AARCH64,
+                    ],
+                ),
                 cli.platform.windows(),
             ],
         ),

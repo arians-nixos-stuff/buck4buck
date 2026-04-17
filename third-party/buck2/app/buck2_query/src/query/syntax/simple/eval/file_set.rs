@@ -16,6 +16,7 @@ use buck2_hash::BuckIndexSet;
 use derive_more::Display;
 use display_container::fmt_container;
 use fancy_regex::Regex;
+use pagable::Pagable;
 
 use crate::query::environment::QueryEnvironment;
 use crate::query::environment::QueryTarget;
@@ -23,10 +24,10 @@ use crate::query::syntax::simple::eval::error::QueryError;
 use crate::query::syntax::simple::eval::set::TargetSet;
 
 /// An entry in a FileSet.
-#[derive(Hash, Eq, PartialEq, Debug, Clone, Display, Allocative)]
+#[derive(Hash, Eq, PartialEq, Debug, Clone, Display, Allocative, Pagable)]
 pub struct FileNode(pub CellPath);
 
-#[derive(Debug, Eq, PartialEq, Clone, Allocative)]
+#[derive(Debug, Eq, PartialEq, Clone, Allocative, Pagable)]
 pub struct FileSet {
     files: BuckIndexSet<FileNode>,
 }

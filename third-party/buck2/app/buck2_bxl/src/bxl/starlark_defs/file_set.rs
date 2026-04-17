@@ -112,16 +112,17 @@ impl OwnedFileSetExpr {
     }
 }
 
-#[derive(Debug, Display, ProvidesStaticType, Allocative)]
+#[derive(Debug, Display, ProvidesStaticType, Allocative, StarlarkPagable)]
 #[derive(NoSerialize)] // TODO maybe this should be
 pub(crate) struct StarlarkFileSet(
     /// Set of files or directories.
+    #[starlark_pagable(pagable)]
     pub(crate) FileSet,
 );
 
 starlark_simple_value!(StarlarkFileSet);
 
-#[starlark_value(type = "bxl.FileSet")]
+#[starlark_value(type = "bxl.FileSet", skip_pagable)]
 impl<'v> StarlarkValue<'v> for StarlarkFileSet {
     fn iterate_collect(&self, heap: Heap<'v>) -> starlark::Result<Vec<Value<'v>>> {
         Ok(self

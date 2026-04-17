@@ -113,6 +113,13 @@ cli.deployer(
                     ],
                     repository = cli.repository.FBSOURCE,
                 ),
+                cli.destination(
+                    branch = "master",
+                    paths = [
+                        "genai/msl_github_tld/tools/lint/starlark/starlark_linter",
+                    ],
+                    repository = cli.repository.FBSOURCE,
+                ),
             ],
         ),
     ),

@@ -20,6 +20,7 @@ use starlark::values::AllocValue;
 use starlark::values::FrozenValueTyped;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
+use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::Value;
 use starlark::values::ValueTyped;
@@ -30,14 +31,15 @@ use starlark::values::starlark_value;
     derive_more::Display,
     Allocative,
     NoSerialize,
-    ProvidesStaticType
+    ProvidesStaticType,
+    StarlarkPagable
 )]
 #[display("ResolvedDynamicValue<{}>", self.value)]
 pub struct StarlarkResolvedDynamicValue {
     pub(crate) value: FrozenValueTyped<'static, FrozenProviderCollection>,
 }
 
-#[starlark_value(type = "ResolvedDynamicValue")]
+#[starlark_value(type = "ResolvedDynamicValue", skip_pagable)]
 impl<'v> StarlarkValue<'v> for StarlarkResolvedDynamicValue
 where
     Self: ProvidesStaticType<'v>,

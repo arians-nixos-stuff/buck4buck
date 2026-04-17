@@ -461,6 +461,7 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::IoEden => rank!(unspecified).generic(false),
         ErrorTag::IoEdenConnectionError => rank!(unspecified),
         ErrorTag::MaterializationError => rank!(unspecified),
+        ErrorTag::MaterializationCancelled => rank!(unspecified),
         ErrorTag::CleanInterrupt => rank!(unspecified),
         ErrorTag::Tpx => rank!(unspecified),
         ErrorTag::TestExecutor => rank!(unspecified),

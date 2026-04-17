@@ -8,4 +8,5 @@
  * above-listed licenses.
  */
 
+pub mod dynamic_priority_handle;
 pub mod priority_semaphore;

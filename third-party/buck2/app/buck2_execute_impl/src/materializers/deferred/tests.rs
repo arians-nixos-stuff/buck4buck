@@ -15,6 +15,7 @@ use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::directory::insert_file;
 use buck2_execute::materialize::materializer::DeferredMaterializerSubscription;
+use buck2_execute::materialize::utils::dynamic_priority_handle::DynamicPriorityHandle;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_hash::StdBuckHashMap;
 use parking_lot::Mutex;
@@ -291,6 +292,7 @@ mod state_machine {
             path: ProjectRelativePathBuf,
             _method: Arc<ArtifactMaterializationMethod>,
             _entry: ActionDirectoryEntry<ActionSharedDirectory>,
+            _priority_control: DynamicPriorityHandle,
             _event_dispatcher: EventDispatcher,
             _cancellations: &CancellationContext,
         ) -> Result<(), MaterializeEntryError> {

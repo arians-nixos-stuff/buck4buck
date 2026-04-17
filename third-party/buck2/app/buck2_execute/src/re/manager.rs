@@ -53,6 +53,7 @@ use crate::execute::blobs::ActionBlobs;
 use crate::execute::manager::CommandExecutionManager;
 use crate::knobs::ExecutorGlobalKnobs;
 use crate::materialize::materializer::Materializer;
+use crate::materialize::utils::dynamic_priority_handle::DynamicPriorityHandle;
 use crate::re::action_identity::ReActionIdentity;
 use crate::re::client::ActionCacheWriteType;
 use crate::re::client::ExecuteResponseOrCancelled;
@@ -464,11 +465,12 @@ impl ManagedRemoteExecutionClient {
     pub async fn materialize_files(
         &self,
         files: Vec<NamedDigestWithPermissions>,
+        priority_control: DynamicPriorityHandle,
     ) -> buck2_error::Result<()> {
         self.lock()?
             .get()
             .await?
-            .materialize_files(files, self.use_case)
+            .materialize_files(files, self.use_case, priority_control)
             .await
     }
 

@@ -24,6 +24,7 @@ use buck2_execute::materialize::materializer::ArtifactNotMaterializedReason;
 use buck2_execute::materialize::materializer::CasDownloadInfo;
 use buck2_execute::materialize::materializer::CopiedArtifact;
 use buck2_execute::materialize::materializer::HttpDownloadInfo;
+use buck2_execute::materialize::utils::dynamic_priority_handle::DynamicPriorityHandle;
 use buck2_execute::output_size::OutputSize;
 use chrono::DateTime;
 use chrono::Utc;
@@ -85,6 +86,7 @@ pub(crate) enum Processing {
     Active {
         future: ProcessingFuture,
         version: Version,
+        priority_control: DynamicPriorityHandle,
     },
 }
 

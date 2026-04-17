@@ -39,6 +39,7 @@ use buck2_execute::execute::clean_output_paths::cleanup_path;
 use buck2_execute::materialize::http::http_download;
 use buck2_execute::materialize::materializer::CasNotFoundError;
 use buck2_execute::materialize::materializer::WriteRequest;
+use buck2_execute::materialize::utils::dynamic_priority_handle::DynamicPriorityHandle;
 use buck2_execute::output_size::OutputSize;
 use buck2_execute::re::error::RemoteExecutionError;
 use buck2_execute::re::manager::ReConnectionManager;
@@ -131,6 +132,7 @@ pub trait IoHandler: Sized + Sync + Send + 'static {
         path: ProjectRelativePathBuf,
         method: Arc<ArtifactMaterializationMethod>,
         entry: ActionDirectoryEntry<ActionSharedDirectory>,
+        priority_control: DynamicPriorityHandle,
         event_dispatcher: EventDispatcher,
         cancellations: &CancellationContext,
     ) -> Result<(), MaterializeEntryError>;
@@ -173,6 +175,7 @@ impl DefaultIoHandler {
         path: ProjectRelativePathBuf,
         method: Arc<ArtifactMaterializationMethod>,
         entry: ActionDirectoryEntry<ActionSharedDirectory>,
+        priority_control: DynamicPriorityHandle,
         stat: &mut MaterializationStat,
         cancellations: &CancellationContext,
     ) -> Result<(), MaterializeEntryError> {
@@ -229,7 +232,7 @@ impl DefaultIoHandler {
                 let re_client = connection.get_client().with_use_case(info.re_use_case);
 
                 re_client
-                    .materialize_files(files)
+                    .materialize_files(files, priority_control.dupe())
                     .await
                     .map_err(|e| match e.find_typed_context::<RemoteExecutionError>() {
                         Some(re_error) if re_error.code == TCode::NOT_FOUND => {
@@ -396,6 +399,7 @@ impl IoHandler for DefaultIoHandler {
         path: ProjectRelativePathBuf,
         method: Arc<ArtifactMaterializationMethod>,
         entry: ActionDirectoryEntry<ActionSharedDirectory>,
+        priority_control: DynamicPriorityHandle,
         event_dispatcher: EventDispatcher,
         cancellations: &CancellationContext,
     ) -> Result<(), MaterializeEntryError> {
@@ -416,7 +420,14 @@ impl IoHandler for DefaultIoHandler {
                     total_bytes: 0,
                 };
                 let res = self
-                    .materialize_entry_span(path, method.dupe(), entry, &mut stat, cancellations)
+                    .materialize_entry_span(
+                        path,
+                        method.dupe(),
+                        entry,
+                        priority_control,
+                        &mut stat,
+                        cancellations,
+                    )
                     .await;
                 let error = res.as_ref().err().map(|e| format!("{e:#}"));
 

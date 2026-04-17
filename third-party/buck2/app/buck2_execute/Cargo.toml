@@ -33,6 +33,7 @@ sha1 = { workspace = true }
 sha2 = { workspace = true }
 smallvec = { workspace = true }
 tokio = { workspace = true }
+tokio-util = { workspace = true }
 tracing = { workspace = true }
 
 allocative = { workspace = true }

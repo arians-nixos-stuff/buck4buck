@@ -96,7 +96,8 @@ use crate::execute::executor_stage_async;
 use crate::execute::manager::CommandExecutionManager;
 use crate::knobs::ExecutorGlobalKnobs;
 use crate::materialize::materializer::Materializer;
-use crate::materialize::utils::priority_semaphore::Priority;
+use crate::materialize::utils::dynamic_priority_handle::AcquirePermitResult;
+use crate::materialize::utils::dynamic_priority_handle::DynamicPriorityHandle;
 use crate::materialize::utils::priority_semaphore::PrioritySemaphore;
 use crate::re::action_identity::ReActionIdentity;
 use crate::re::convert::platform_to_proto;
@@ -141,6 +142,19 @@ pub enum CancellationReason {
 pub struct Cancelled {
     pub reason: Option<CancellationReason>,
 }
+
+/// Result of downloading a single chunk of files
+enum ChunkDownloadResult {
+    /// Chunk was downloaded successfully
+    Downloaded(TLocalCacheStats),
+    /// Chunk was cancelled while waiting for permit
+    Cancelled,
+}
+
+#[derive(Debug, buck2_error::Error)]
+#[error("Materialization cancelled")]
+#[buck2(tag = MaterializationCancelled)]
+struct MaterializationCancelled;
 
 #[derive(Clone, Dupe, Allocative)]
 pub struct RemoteExecutionClient {
@@ -346,11 +360,15 @@ impl RemoteExecutionClient {
         &self,
         files: Vec<NamedDigestWithPermissions>,
         use_case: RemoteExecutorUseCase,
+        priority_control: DynamicPriorityHandle,
     ) -> buck2_error::Result<()> {
         let stat = self
             .data
             .materializes
-            .op(self.data.client.materialize_files(files, use_case))
+            .op(self
+                .data
+                .client
+                .materialize_files(files, use_case, priority_control))
             .await?;
         self.data.local_cache.update(&stat);
         Ok(())
@@ -1822,6 +1840,7 @@ impl RemoteExecutionClientImpl {
         &self,
         files: Vec<NamedDigestWithPermissions>,
         use_case: RemoteExecutorUseCase,
+        priority_control: DynamicPriorityHandle,
     ) -> buck2_error::Result<TLocalCacheStats> {
         if buck2_env!(
             "BUCK2_TEST_FAIL_RE_DOWNLOADS",
@@ -1833,50 +1852,69 @@ impl RemoteExecutionClientImpl {
 
         let use_case = &use_case;
 
-        let futs = chunks(files, self.download_chunk_size).map(|chunk| async move {
-            let _permit = self
-                .download_files_semapore
-                .acquire_many(
-                    chunk
-                        .len()
-                        .try_into()
-                        .buck_error_context("chunk is too large")?,
-                    Priority::High,
+        let futs = chunks(files, self.download_chunk_size).map(|chunk| {
+            let mut priority_control = priority_control.dupe();
+            async move {
+                let permits: u32 = chunk
+                    .len()
+                    .try_into()
+                    .buck_error_context("chunk is too large")?;
+
+                let _permit = match priority_control
+                    .acquire_permit(&self.download_files_semapore, permits)
+                    .await
+                    .buck_error_context("Failed to acquire download_files_semapore")?
+                {
+                    AcquirePermitResult::Acquired(permit) => permit,
+                    AcquirePermitResult::Cancelled => {
+                        return Ok(ChunkDownloadResult::Cancelled);
+                    }
+                };
+
+                let response = with_error_handler(
+                    "materialize_files",
+                    self.get_session_id(),
+                    self.client()
+                        .get_cas_client()
+                        .download(
+                            use_case.metadata(None),
+                            DownloadRequest {
+                                file_digests: Some(chunk),
+                                ..Default::default()
+                            },
+                        )
+                        .await,
                 )
-                .await
-                .buck_error_context("Failed to acquire download_files_semapore")?;
+                .await?;
 
-            let response = with_error_handler(
-                "materialize_files",
-                self.get_session_id(),
-                self.client()
-                    .get_cas_client()
-                    .download(
-                        use_case.metadata(None),
-                        DownloadRequest {
-                            file_digests: Some(chunk),
-                            ..Default::default()
-                        },
-                    )
-                    .await,
-            )
-            .await?;
-
-            buck2_error::Ok(response.local_cache_stats)
+                buck2_error::Ok(ChunkDownloadResult::Downloaded(response.local_cache_stats))
+            }
         });
 
-        let stat = buck2_util::future::try_join_all(futs).await?.iter().fold(
-            TLocalCacheStats::default(),
-            |acc, x| TLocalCacheStats {
-                hits_files: acc.hits_files + x.hits_files,
-                hits_bytes: acc.hits_bytes + x.hits_bytes,
-                misses_files: acc.misses_files + x.misses_files,
-                misses_bytes: acc.misses_bytes + x.misses_bytes,
-                ..Default::default()
-            },
-        );
+        let results: Vec<ChunkDownloadResult> = buck2_util::future::try_join_all(futs).await?;
 
-        Ok(stat)
+        let mut total_stats = TLocalCacheStats::default();
+        let mut cancelled_count = 0;
+
+        for result in results {
+            match result {
+                ChunkDownloadResult::Downloaded(stats) => {
+                    total_stats.hits_files += stats.hits_files;
+                    total_stats.hits_bytes += stats.hits_bytes;
+                    total_stats.misses_files += stats.misses_files;
+                    total_stats.misses_bytes += stats.misses_bytes;
+                }
+                ChunkDownloadResult::Cancelled => {
+                    cancelled_count += 1;
+                }
+            }
+        }
+
+        if cancelled_count > 0 {
+            return Err(MaterializationCancelled.into());
+        }
+
+        Ok(total_stats)
     }
 
     async fn get_digests_ttl(

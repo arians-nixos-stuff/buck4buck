@@ -371,7 +371,8 @@ pub(crate) async fn get_from_template_placeholder_info(
         .try_compute_join(targets, |ctx, target| {
             async move {
                 let artifacts =
-                    get_template_info_provider_artifacts(ctx, &target, *template_name).await?;
+                    get_template_info_provider_artifacts(ctx, &target, template_name.as_str())
+                        .await?;
                 buck2_error::Ok(
                     artifacts
                         .into_iter()

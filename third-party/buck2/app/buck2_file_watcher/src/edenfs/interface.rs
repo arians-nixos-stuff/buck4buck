@@ -474,6 +474,13 @@ impl EdenFsFileWatcher {
             // we ignore any changes that are not relative to the project root
             Err(_) => return Ok(()),
         };
+
+        // Watchman cookie files are synchronization markers, not real source changes.
+        if crate::is_watchman_cookie(project_rel_path) {
+            stats.add_ignored(1);
+            return Ok(());
+        }
+
         let cell_path = self.cells.get_cell_path(project_rel_path);
 
         let ignore = self

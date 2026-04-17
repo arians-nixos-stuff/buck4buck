@@ -112,6 +112,12 @@ impl WatchmanQueryProcessor {
         handler: &mut FileChangeTracker,
         stats: &mut FileWatcherStats,
     ) -> buck2_error::Result<()> {
+        // Watchman cookie files are synchronization markers, not real source changes.
+        if crate::is_watchman_cookie(path) {
+            stats.add_ignored(1);
+            return Ok(());
+        }
+
         let cell_path = self.cells.get_cell_path(path);
 
         let ignore = self

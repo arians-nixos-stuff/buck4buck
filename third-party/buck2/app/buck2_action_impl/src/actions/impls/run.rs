@@ -115,6 +115,7 @@ use starlark::values::NoSerialize;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::OwnedFrozenValueTyped;
 use starlark::values::ProvidesStaticType;
+use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::StringValue;
 use starlark::values::Trace;
@@ -287,7 +288,15 @@ pub(crate) struct StarlarkRunActionValues<'v> {
     pub(crate) outputs_for_error_handler: Vec<ValueTyped<'v, StarlarkOutputArtifact<'v>>>,
 }
 
-#[derive(Debug, Display, Trace, ProvidesStaticType, NoSerialize, Allocative)]
+#[derive(
+    Debug,
+    Display,
+    Trace,
+    ProvidesStaticType,
+    NoSerialize,
+    Allocative,
+    StarlarkPagable
+)]
 #[display("RunActionValues")]
 pub(crate) struct FrozenStarlarkRunActionValues {
     pub(crate) exe: FrozenValueTyped<'static, FrozenStarlarkCmdArgs>,
@@ -305,7 +314,7 @@ pub(crate) struct FrozenStarlarkRunActionValues {
 #[starlark_value(type = "RunActionValues")]
 impl<'v> StarlarkValue<'v> for StarlarkRunActionValues<'v> {}
 
-#[starlark_value(type = "RunActionValues")]
+#[starlark_value(type = "RunActionValues", skip_pagable)]
 impl<'v> StarlarkValue<'v> for FrozenStarlarkRunActionValues {
     type Canonical = StarlarkRunActionValues<'v>;
 }

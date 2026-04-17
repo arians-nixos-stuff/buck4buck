@@ -117,7 +117,7 @@ def buck_e2e_test(
         "fbcode//buck2/tests/e2e_util:utilities",
     ]
     if use_buck_api:
-        deps.append("fbcode//buck2/tests/e2e_util/api:api")
+        deps += ["fbcode//buck2/tests/e2e_util/api:api"]
     resources = resources or {}
 
     # Let users of the macro define their own configuration for pytest. This allow for reusing all

@@ -473,6 +473,14 @@ impl DaemonState {
                     .unwrap_or_else(RolloutPercentage::never)
                     .roll();
 
+                let eager_materialization_enabled = root_config
+                    .parse::<RolloutPercentage>(BuckconfigKeyRef {
+                        section: "buck2",
+                        property: "eager_materialization_enabled",
+                    })?
+                    .unwrap_or_else(RolloutPercentage::never)
+                    .roll();
+
                 DeferredMaterializerConfigs {
                     materialize_final_artifacts: matches!(
                         materializations,
@@ -488,10 +496,13 @@ impl DaemonState {
                     verbose_materializer_log,
                     clean_stale_config,
                     disable_eager_write_dispatch,
+                    eager_materialization_enabled,
                 }
             };
             let disable_eager_write_dispatch =
                 deferred_materializer_configs.disable_eager_write_dispatch;
+            let eager_materialization_enabled =
+                deferred_materializer_configs.eager_materialization_enabled;
 
             let use_eden_thrift_read = root_config
                 .parse(BuckconfigKeyRef {
@@ -680,6 +691,7 @@ impl DaemonState {
                 format!("memory_tracker-enabled:{}", memory_tracker.is_some()),
                 format!("action-freezing-enabled:{}", action_freezing_enabled),
                 format!("has-cgroup:{}", memory_tracker.is_some()),
+                format!("eager-materialization:{}", eager_materialization_enabled,),
             ];
             let system_warning_config = SystemWarningConfig::from_config(root_config)?;
 

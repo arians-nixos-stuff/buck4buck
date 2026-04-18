@@ -324,6 +324,11 @@ pub trait Materializer: Allocative + Send + Sync + 'static {
         >,
     >;
 
+    /// Whether eager materialization is enabled for this materializer.
+    fn is_eager_materialization_enabled(&self) -> bool {
+        false
+    }
+
     /// Register paths for eager materialization. When artifacts are declared at these paths,
     /// they will be materialized at low priority. Returns a guard that, when dropped,
     /// unregisters the paths and cancels any in-flight low-priority materializations.

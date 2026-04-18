@@ -528,6 +528,7 @@ mod state_machine {
                 command_sender,
                 materialize_final_artifacts: true,
                 defer_write_actions: true,
+                eager_materialization_enabled: true,
                 io,
                 materializer_state_info: buck2_data::MaterializerStateInfo {
                     num_entries_from_sqlite: 0,

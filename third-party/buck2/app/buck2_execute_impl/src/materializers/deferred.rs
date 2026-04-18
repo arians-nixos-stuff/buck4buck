@@ -131,6 +131,7 @@ pub struct DeferredMaterializerAccessor<T: IoHandler + 'static> {
     /// materializes them, otherwise skips them.
     materialize_final_artifacts: bool,
     defer_write_actions: bool,
+    eager_materialization_enabled: bool,
 
     io: Arc<T>,
 
@@ -164,6 +165,7 @@ pub struct DeferredMaterializerConfigs {
     pub verbose_materializer_log: bool,
     pub clean_stale_config: Option<CleanStaleConfig>,
     pub disable_eager_write_dispatch: bool,
+    pub eager_materialization_enabled: bool,
 }
 
 pub struct TtlRefreshConfiguration {
@@ -604,6 +606,10 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
         Ok(result)
     }
 
+    fn is_eager_materialization_enabled(&self) -> bool {
+        self.eager_materialization_enabled
+    }
+
     async fn register_eager_paths(
         &self,
         paths: Vec<ProjectRelativePathBuf>,
@@ -720,6 +726,7 @@ impl DeferredMaterializerAccessor<DefaultIoHandler> {
             command_sender,
             materialize_final_artifacts: configs.materialize_final_artifacts,
             defer_write_actions: configs.defer_write_actions,
+            eager_materialization_enabled: configs.eager_materialization_enabled,
             io,
             materializer_state_info,
             stats,

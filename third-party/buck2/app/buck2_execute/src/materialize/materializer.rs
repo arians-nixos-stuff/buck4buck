@@ -38,6 +38,13 @@ use crate::directory::ActionSharedDirectory;
 use crate::execute::action_digest::TrackedActionDigest;
 use crate::materialize::http::Checksum;
 
+/// Opaque guard returned by `Materializer::register_eager_paths`.
+/// Dropping this guard releases the eager path registrations and cancels
+/// any in-flight low-priority materializations for those paths.
+pub trait EagerMaterializationGuard: Send + Sync + 'static {}
+
+impl EagerMaterializationGuard for () {}
+
 pub struct WriteRequest {
     pub path: ProjectRelativePathBuf,
     pub content: Vec<u8>,
@@ -316,6 +323,16 @@ pub trait Materializer: Allocative + Send + Sync + 'static {
             )>,
         >,
     >;
+
+    /// Register paths for eager materialization. When artifacts are declared at these paths,
+    /// they will be materialized at low priority. Returns a guard that, when dropped,
+    /// unregisters the paths and cancels any in-flight low-priority materializations.
+    async fn register_eager_paths(
+        &self,
+        _paths: Vec<ProjectRelativePathBuf>,
+    ) -> buck2_error::Result<Box<dyn EagerMaterializationGuard>> {
+        Ok(Box::new(()))
+    }
 }
 
 #[derive(Copy, Clone, Dupe, Debug)]

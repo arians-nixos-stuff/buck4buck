@@ -10,6 +10,7 @@
 
 pub mod clean_stale;
 mod data_tree;
+mod eager_materialization;
 mod extension;
 mod io_handler;
 mod materialize_stack;
@@ -60,6 +61,7 @@ use buck2_execute::materialize::materializer::CopiedArtifact;
 use buck2_execute::materialize::materializer::DeclareArtifactPayload;
 use buck2_execute::materialize::materializer::DeclareMatchOutcome;
 use buck2_execute::materialize::materializer::DeferredMaterializerExtensions;
+use buck2_execute::materialize::materializer::EagerMaterializationGuard;
 use buck2_execute::materialize::materializer::HttpDownloadInfo;
 use buck2_execute::materialize::materializer::MaterializationError;
 use buck2_execute::materialize::materializer::Materializer;
@@ -86,6 +88,7 @@ use crate::materializers::deferred::clean_stale::CleanStaleConfig;
 use crate::materializers::deferred::command_processor::DeferredMaterializerCommandProcessor;
 use crate::materializers::deferred::command_processor::LowPriorityMaterializerCommand;
 use crate::materializers::deferred::command_processor::MaterializerCommand;
+use crate::materializers::deferred::eager_materialization::EagerPathLeases;
 use crate::materializers::deferred::file_tree::FileTree;
 use crate::materializers::deferred::io_handler::DefaultIoHandler;
 use crate::materializers::deferred::io_handler::IoHandler;
@@ -599,6 +602,19 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
         )?;
 
         Ok(result)
+    }
+
+    async fn register_eager_paths(
+        &self,
+        paths: Vec<ProjectRelativePathBuf>,
+    ) -> buck2_error::Result<Box<dyn EagerMaterializationGuard>> {
+        let (sender, receiver) = oneshot::channel();
+        self.command_sender
+            .send(MaterializerCommand::RegisterEagerPaths(paths, sender))?;
+        let leases = receiver
+            .await
+            .buck_error_context("No response from materializer")?;
+        Ok(Box::new(EagerPathLeases(leases)))
     }
 }
 

@@ -8,19 +8,24 @@
  * above-listed licenses.
  */
 
+use std::sync::Arc;
+
 use buck2_common::file_ops::metadata::FileMetadata;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_error::internal_error;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::directory::insert_file;
+use buck2_execute::materialize::materializer::DeclareArtifactPayload;
 use buck2_execute::materialize::materializer::DeferredMaterializerSubscription;
 use buck2_execute::materialize::utils::dynamic_priority_handle::DynamicPriorityHandle;
+use buck2_execute::materialize::utils::priority_semaphore::Priority;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_hash::StdBuckHashMap;
 use parking_lot::Mutex;
 
 use super::*;
+use crate::materializers::deferred::artifact_tree::MaterializingFuture;
 
 #[test]
 fn test_find_artifacts() -> buck2_error::Result<()> {
@@ -1441,6 +1446,203 @@ mod state_machine {
             assert!(matches!(returned_entry, ActionDirectoryEntry::Dir(_)));
 
             Ok(())
+        })
+        .await
+    }
+
+    // ---- Eager materialization tests ----
+
+    /// Helper to extract the priority_control from an Active/Materializing artifact in the tree.
+    fn get_priority_control<T: IoHandler>(
+        dm: &mut DeferredMaterializerCommandProcessor<T>,
+        path: &ProjectRelativePathBuf,
+    ) -> DynamicPriorityHandle {
+        let mut path_iter = path.iter();
+        let data = dm
+            .tree
+            .prefix_get_mut(&mut path_iter)
+            .unwrap_or_else(|| panic!("artifact {} should be in tree", path));
+        match &data.processing {
+            Processing::Active {
+                priority_control, ..
+            } => priority_control.clone(),
+            _ => panic!("Expected Active processing for {}", path),
+        }
+    }
+
+    /// Helper to extract the materializing future without upgrading priority.
+    fn get_materializing_future<T: IoHandler>(
+        dm: &mut DeferredMaterializerCommandProcessor<T>,
+        path: &ProjectRelativePathBuf,
+    ) -> MaterializingFuture {
+        let mut path_iter = path.iter();
+        let data = dm
+            .tree
+            .prefix_get_mut(&mut path_iter)
+            .unwrap_or_else(|| panic!("artifact {} should be in tree", path));
+        match &data.processing {
+            Processing::Active {
+                future: ProcessingFuture::Materializing(f),
+                ..
+            } => f.clone(),
+            _ => panic!("Expected Active/Materializing for {}", path),
+        }
+    }
+
+    /// Helper to register paths, declare an artifact, and return the processor ready for assertions.
+    fn eager_declare<T: IoHandler>(
+        dm: &mut DeferredMaterializerCommandProcessor<T>,
+        path: &ProjectRelativePathBuf,
+    ) {
+        let digest_config = dm.io.digest_config();
+        let value = ArtifactValue::file(digest_config.empty_file());
+        dm.testing_process_one_command(MaterializerCommand::Declare(
+            DeclareArtifactPayload {
+                path: path.clone(),
+                artifact: value,
+            },
+            Box::new(ArtifactMaterializationMethod::Test),
+            EventDispatcher::null(),
+            None,
+        ));
+    }
+
+    /// Register → Declare (Low) → verify materialization completes → Release → verify cancelled
+    #[tokio::test]
+    async fn test_eager_declare_and_cancel() {
+        ignore_stack_overflow_checks_for_future(async {
+            let path = make_path("buck-out/v2/eager/cancel");
+            let (mut dm, _) = make_processor(Default::default());
+
+            // Register and declare → starts materializing at Low
+            let sender = dm.command_sender.dupe();
+            let leases = dm
+                .eager_materializations
+                .register(vec![path.clone()], &sender);
+            eager_declare(&mut dm, &path);
+            assert_eq!(dm.io.take_log(), &[(Op::Clean, path.clone())]);
+
+            let priority_control = get_priority_control(&mut dm, &path);
+            assert_eq!(priority_control.priority(), Priority::Low);
+
+            // Await eager materialization → should complete at Low (without upgrading priority)
+            let fut = get_materializing_future(&mut dm, &path);
+            fut.await.expect("Materialization should succeed");
+            assert_eq!(dm.io.take_log(), &[(Op::Materialize, path.clone())]);
+
+            // Drop leases and release → should cancel
+            let cancel_token = priority_control.cancel_token().clone();
+            drop(leases);
+            dm.testing_process_one_command(MaterializerCommand::ReleaseEagerPath(Arc::new(
+                path.clone(),
+            )));
+
+            assert!(
+                cancel_token.is_cancelled(),
+                "Low priority materialization should be cancelled on release"
+            );
+        })
+        .await
+    }
+
+    /// Register → Declare (Low) → Demand materialize (High) → verify materialization completes
+    #[tokio::test]
+    async fn test_eager_declare_upgrade_and_release() {
+        ignore_stack_overflow_checks_for_future(async {
+            let path = make_path("buck-out/v2/eager/upgrade");
+            let (mut dm, _) = make_processor(Default::default());
+
+            // Register and declare → starts eager materialization at Low
+            let sender = dm.command_sender.dupe();
+            let leases = dm
+                .eager_materializations
+                .register(vec![path.clone()], &sender);
+            eager_declare(&mut dm, &path);
+            assert_eq!(dm.io.take_log(), &[(Op::Clean, path.clone())]);
+            assert_eq!(
+                get_priority_control(&mut dm, &path).priority(),
+                Priority::Low
+            );
+
+            // Demand materialize → upgrades to High, returns existing future
+            let fut = dm
+                .materialize_artifact(&path, EventDispatcher::null())
+                .expect("Expected a materializing future");
+            assert_eq!(
+                get_priority_control(&mut dm, &path).priority(),
+                Priority::High
+            );
+
+            // Await materialization → should complete
+            fut.await.expect("Materialization should succeed");
+            assert_eq!(dm.io.take_log(), &[(Op::Materialize, path.clone())]);
+
+            // Release after materialization completed → should NOT cancel
+            let cancel_token = get_priority_control(&mut dm, &path).cancel_token().clone();
+            drop(leases);
+            dm.testing_process_one_command(MaterializerCommand::ReleaseEagerPath(Arc::new(
+                path.clone(),
+            )));
+            assert!(
+                !cancel_token.is_cancelled(),
+                "High priority materialization should not be cancelled on release"
+            );
+        })
+        .await
+    }
+
+    /// Two actions register same path → one releases → other still holds lease → not cancelled
+    #[tokio::test]
+    async fn test_eager_multiple_callers_register_path() {
+        ignore_stack_overflow_checks_for_future(async {
+            let path = make_path("buck-out/v2/eager/shared");
+            let (mut dm, _) = make_processor(Default::default());
+            let sender = dm.command_sender.dupe();
+
+            // Two actions register the same path → both get Arcs to the same lease
+            let leases_a = dm
+                .eager_materializations
+                .register(vec![path.clone()], &sender);
+            let leases_b = dm
+                .eager_materializations
+                .register(vec![path.clone()], &sender);
+
+            // Declare → eager materialization at Low
+            eager_declare(&mut dm, &path);
+            assert_eq!(dm.io.take_log(), &[(Op::Clean, path.clone())]);
+            assert_eq!(
+                get_priority_control(&mut dm, &path).priority(),
+                Priority::Low
+            );
+
+            // Await materialization
+            let fut = get_materializing_future(&mut dm, &path);
+            fut.await.expect("Materialization should succeed");
+            assert_eq!(dm.io.take_log(), &[(Op::Materialize, path.clone())]);
+
+            // Action A finishes, drops its leases
+            let cancel_token = get_priority_control(&mut dm, &path).cancel_token().clone();
+            drop(leases_a);
+
+            // Simulate a ReleaseEagerPath while B still holds a lease
+            // release() sees Weak::upgrade() succeeds → returns false → no cancel
+            dm.testing_process_one_command(MaterializerCommand::ReleaseEagerPath(Arc::new(
+                path.clone(),
+            )));
+            assert!(
+                !cancel_token.is_cancelled(),
+                "Should not cancel while another action still holds a lease"
+            );
+
+            // Action B finishes, drops its leases → last Arc dropped
+            drop(leases_b);
+            dm.testing_process_one_command(MaterializerCommand::ReleaseEagerPath(Arc::new(
+                path.clone(),
+            )));
+            assert!(
+                cancel_token.is_cancelled(),
+                "Should cancel after all leases released"
+            );
         })
         .await
     }

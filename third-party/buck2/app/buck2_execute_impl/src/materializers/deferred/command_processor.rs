@@ -86,6 +86,8 @@ use crate::materializers::deferred::artifact_tree::artifact_metadata_matches_ent
 use crate::materializers::deferred::clean_stale::CleanResult;
 use crate::materializers::deferred::clean_stale::CleanStaleArtifactsCommand;
 use crate::materializers::deferred::clean_stale::CleanStaleConfig;
+use crate::materializers::deferred::eager_materialization::EagerMaterializations;
+use crate::materializers::deferred::eager_materialization::EagerPathLease;
 use crate::materializers::deferred::extension::ExtensionCommand;
 use crate::materializers::deferred::io_handler::IoHandler;
 use crate::materializers::deferred::join_all_existing_futs;
@@ -121,6 +123,7 @@ pub(super) struct DeferredMaterializerCommandProcessor<T: 'static> {
     verbose_materializer_log: bool,
     daemon_dispatcher: EventDispatcher,
     disable_eager_write_dispatch: bool,
+    pub(super) eager_materializations: EagerMaterializations<T>,
 }
 
 /// Message taken by the `DeferredMaterializer`'s command loop.
@@ -182,6 +185,16 @@ pub(super) enum MaterializerCommand<T: 'static> {
     #[allow(dead_code)]
     Abort,
 
+    /// Register paths for eager materialization so they are materialized on declare
+    RegisterEagerPaths(
+        Vec<ProjectRelativePathBuf>,
+        oneshot::Sender<Vec<Arc<EagerPathLease<T>>>>,
+    ),
+
+    /// Release eager materialization for a single path. This unregisters the eager path and
+    /// cancels waiting eager-only materialization work, if any.
+    ReleaseEagerPath(Arc<ProjectRelativePathBuf>),
+
     GetArtifactEntriesForMaterializedPaths {
         paths: Vec<ProjectRelativePathBuf>,
         fetch_root_artifact_entries_for_subpaths: bool,
@@ -229,6 +242,12 @@ impl<T> std::fmt::Debug for MaterializerCommand<T> {
             MaterializerCommand::Subscription(op) => write!(f, "Subscription({op:?})",),
             MaterializerCommand::Extension(ext) => write!(f, "Extension({ext:?})"),
             MaterializerCommand::Abort => write!(f, "Abort"),
+            MaterializerCommand::RegisterEagerPaths(paths, _) => {
+                write!(f, "RegisterEagerPaths({paths:?})")
+            }
+            MaterializerCommand::ReleaseEagerPath(path) => {
+                write!(f, "ReleaseEagerPath({path:?})")
+            }
             MaterializerCommand::GetArtifactEntriesForMaterializedPaths {
                 paths,
                 fetch_root_artifact_entries_for_subpaths,
@@ -369,6 +388,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         let ttl_refresh_history = Vec::new();
         let ttl_refresh_instance = None;
         let version_tracker = VersionTracker::new();
+        let eager_materializations = EagerMaterializations::new();
         Self {
             io,
             sqlite_db,
@@ -386,6 +406,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             verbose_materializer_log,
             daemon_dispatcher,
             disable_eager_write_dispatch,
+            eager_materializations,
         }
     }
 
@@ -431,6 +452,36 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         F::Output: Send + 'static,
     {
         Self::spawn_from_rt(&self.rt, dispatcher, f)
+    }
+
+    fn register_eager_paths(
+        &mut self,
+        paths: Vec<ProjectRelativePathBuf>,
+    ) -> Vec<Arc<EagerPathLease<T>>> {
+        self.eager_materializations
+            .register(paths, &self.command_sender)
+    }
+
+    fn release_eager_path(&mut self, path: Arc<ProjectRelativePathBuf>) {
+        let should_release = self.eager_materializations.release(&path);
+        if !should_release {
+            return;
+        }
+
+        if let Some((_artifact_path, data)) =
+            Self::find_artifact_containing_path(&mut self.tree, &path)
+        {
+            if let Processing::Active {
+                future: ProcessingFuture::Materializing(_),
+                priority_control,
+                ..
+            } = &data.processing
+            {
+                if matches!(priority_control.priority(), Priority::Low) {
+                    priority_control.cancel();
+                }
+            }
+        }
     }
 
     /// Loop that runs for as long as the materializer is alive.
@@ -596,6 +647,11 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
 
                 if self.subscriptions.should_materialize_eagerly(&path) {
                     self.materialize_artifact(&path, event_dispatcher);
+                } else if self
+                    .eager_materializations
+                    .should_materialize_eagerly(&path)
+                {
+                    self.materialize_artifact_with_priority(&path, event_dispatcher, Priority::Low);
                 }
             }),
             MaterializerCommand::MatchArtifacts(paths, sender) => {
@@ -659,6 +715,10 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             MaterializerCommand::Subscription(sub) => sub.execute(self),
             MaterializerCommand::Extension(ext) => ext.execute(self),
             MaterializerCommand::Abort => unreachable!(),
+            MaterializerCommand::RegisterEagerPaths(paths, sender) => {
+                sender.send(self.register_eager_paths(paths)).ok();
+            }
+            MaterializerCommand::ReleaseEagerPath(path) => self.release_eager_path(path),
             MaterializerCommand::GetArtifactEntriesForMaterializedPaths {
                 paths,
                 fetch_root_artifact_entries_for_subpaths,

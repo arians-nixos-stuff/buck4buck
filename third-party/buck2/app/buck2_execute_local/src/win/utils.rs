@@ -11,8 +11,8 @@
 use std::io::Error;
 
 use buck2_error::buck2_error;
-use windows_sys::Win32::Foundation::BOOL;
 use windows_sys::Win32::Foundation::FALSE;
+use windows_sys::core::BOOL;
 
 pub(crate) fn result_bool(ret: BOOL) -> buck2_error::Result<()> {
     if ret == FALSE {

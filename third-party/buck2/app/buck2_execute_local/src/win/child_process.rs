@@ -18,7 +18,6 @@ use std::task::Poll;
 
 use tokio::io;
 use tokio::sync::oneshot;
-use windows_sys::Win32::Foundation::BOOLEAN;
 use windows_sys::Win32::Foundation::HANDLE;
 use windows_sys::Win32::Foundation::INVALID_HANDLE_VALUE;
 use windows_sys::Win32::System::Threading::INFINITE;
@@ -123,7 +122,7 @@ impl Drop for Waiting {
     }
 }
 
-unsafe extern "system" fn callback(ptr: *mut std::ffi::c_void, _timer_fired: BOOLEAN) {
+unsafe extern "system" fn callback(ptr: *mut std::ffi::c_void, _timer_fired: bool) {
     let complete = unsafe { &mut *(ptr as *mut Option<oneshot::Sender<()>>) };
     complete.take().unwrap().send(()).unwrap();
 }

@@ -107,7 +107,7 @@ def pagable_transition_alias(name: str, actual, labels):
     default_target_platform = platform.target_platform
     _pagable_transition_alias(
         name = name,
-        actual = actual,
+        actual = translate_target(actual),
         labels = labels,
         default_target_platform = default_target_platform,
     )

@@ -61,6 +61,11 @@ if FLAVOR == "check_dependencies_test":  # noqa: C901
                 if os.environ.get("DEPS_FILTER_PATTERN")
                 else []
             ),
+            *(
+                ["--deps_exclude_pattern", os.environ["DEPS_EXCLUDE_PATTERN"]]
+                if os.environ.get("DEPS_EXCLUDE_PATTERN")
+                else []
+            ),
             env={
                 "BUCK2_TEST_DISABLE_LOG_UPLOAD": "false",
                 "BUCK2_RUNTIME_THREADS": "8",

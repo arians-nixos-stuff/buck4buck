@@ -59,6 +59,7 @@ def check_dependencies_test(
         labels = [],
         target_deps = True,
         deps_filter_pattern = None,
+        deps_exclude_pattern = None,
         **kwargs):
     """
     Creates a test target from a buck2 bxl script. BXL script must use "test" as entry
@@ -131,6 +132,7 @@ def check_dependencies_test(
             "ALLOWLIST": allowlist_patterns,
             "BLOCKLIST": blocklist_patterns,
             "BXL_MAIN": bxl_main,
+            "DEPS_EXCLUDE_PATTERN": deps_exclude_pattern or "",
             "DEPS_FILTER_PATTERN": deps_filter_pattern or "",
             "EXPECT_FAILURE_MSG": expect_failure_msg or "",
             "EXTRA_BUCK_ARGS_FILE": "@$(location :%s)" % (extra_buck_args_target),

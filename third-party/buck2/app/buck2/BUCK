@@ -84,6 +84,9 @@ buck_rust_binary(
         # This config value is set by the upload script, and controls the output of `--internal-version` on windows
         "BUCK2_WIN_INTERNAL_VERSION": read_config("buck", "win_internal_version", ""),
     },
+    # Set via -c buck2.emit_relocs=true in the deploy script to produce a
+    # binary with ELF relocations for BOLT post-link optimization.
+    linker_flags = ["-Wl,--emit-relocs"] if read_config("buck2", "emit_relocs", "") == "true" else [],
     rustc_flags = select({
         ":buck2_client_only_build": ["--cfg=client_only"],
         "DEFAULT": [],

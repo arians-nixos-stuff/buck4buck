@@ -96,60 +96,73 @@ impl FinalConsole {
 /// Known terminals and their detection:
 ///
 /// ```text
-/// Support  Terminal          $TERM              Env Var
-/// -------  ----------------  -----------------  -------------------------
-/// Yes      VSCode terminal   xterm-256color     TERM_PROGRAM=vscode
-/// Yes      iTerm2            xterm-256color     ITERM_SESSION_ID
-/// Yes      Kitty             xterm-kitty        KITTY_WINDOW_ID
-/// Yes      WezTerm           wezterm            WEZTERM_EXECUTABLE
-/// Yes      GNOME Terminal    xterm-256color     VTE_VERSION
-/// Yes      Konsole           xterm-256color     (none)
-/// Yes      Windows Terminal  xterm-256color     WT_SESSION
-/// Yes      Alacritty (Win)   xterm-256color     OS=Windows_NT / ComSpec
-/// No       xterm             xterm              (none)
-/// No       rxvt              rxvt               (none)
-/// No       Terminal.app      xterm-256color     (none)
+/// Support  Terminal          Detection
+/// -------  ----------------  ----------------------------------------
+/// Yes      VSCode terminal   TERM_PROGRAM=vscode
+/// Yes      iTerm2            TERM_PROGRAM=iTerm.app / ITERM_SESSION_ID
+/// Yes      Kitty             KITTY_WINDOW_ID
+/// Yes      WezTerm           TERM_PROGRAM=WezTerm / WEZTERM_EXECUTABLE
+/// Yes      Ghostty           TERM_PROGRAM=ghostty
+/// Yes      GNOME Terminal    VTE_VERSION
+/// Yes      Windows Terminal  TERM_PROGRAM=Windows_Terminal / WT_SESSION
+/// Yes      Alacritty (Win)   TERM=xterm-256color + OS=Windows_NT / ComSpec
+/// No       xterm             (not detected)
+/// No       rxvt              (not detected)
+/// No       Terminal.app      TERM_PROGRAM=Apple_Terminal
 /// ```
 ///
-/// NOTE: This is not a perfect function. SSH masks important env vars
-///       needed for accurate detection. Thus iTerm2, WezTerm, etc.
-///       over SSH may not be detected because they are indistinguishable
-///       from Apple Terminal.app. We cater to the lowest common
-///       denominator in ambiguous cases.
+/// Detection priority: TERM_PROGRAM is checked first (now reliably
+/// forwarded over SSH), then terminal-specific env vars as fallback.
 fn terminal_supports_hyperlinks() -> bool {
-    // Known hyperlink-capable terminals detected via their env vars:
+    // macOS Terminal.app does not support OSC 8 hyperlinks.
+    if std::env::var_os("TERM_PROGRAM")
+        .as_deref()
+        .is_some_and(|v| v == "Apple_Terminal")
+    {
+        return false;
+    }
+    // TERM_PROGRAM in (Windows_Terminal, vscode, WezTerm, iTerm.app, ghostty)
+    // These terminals support OSC 8 hyperlinks.
+    if std::env::var_os("TERM_PROGRAM")
+        .as_deref()
+        .is_some_and(|v| {
+            v == "Windows_Terminal"
+                || v == "vscode"
+                || v == "WezTerm"
+                || v == "iTerm.app"
+                || v == "ghostty"
+        })
+    {
+        return true;
+    }
+
+    // If TERM_PROGRAM is not set, fall back to terminal-specific env vars:
     // iTerm2, Kitty, WezTerm, GNOME Terminal (VTE), Windows Terminal
     if std::env::var_os("ITERM_SESSION_ID").is_some()
         || std::env::var_os("KITTY_WINDOW_ID").is_some()
         || std::env::var_os("WEZTERM_EXECUTABLE").is_some()
         || std::env::var_os("VTE_VERSION").is_some()
         || std::env::var_os("WT_SESSION").is_some()
-        || std::env::var_os("TERM_PROGRAM").is_some_and(|term| term == "vscode")
     {
         return true;
     }
-    if std::env::var_os("TERM").is_some_and(|term| term == "xterm-256color") {
-        // Local Windows shells (e.g. Alacritty, Windows Terminal without
-        // WT_SESSION) reliably set OS=Windows_NT and ComSpec. These terminals
-        // support hyperlinks.
+    // For TERM=xterm-256color without TERM_PROGRAM, check Windows-specific
+    // env vars. The TERM guard is required because ComSpec and OS=Windows_NT
+    // are system-level variables set on all Windows installs, including
+    // cmd.exe and older PowerShell which do NOT support OSC 8 hyperlinks.
+    if std::env::var_os("TERM")
+        .as_deref()
+        .is_some_and(|v| v == "xterm-256color")
+    {
         if std::env::var_os("OS").is_some_and(|v| v == "Windows_NT")
             || std::env::var_os("ComSpec").is_some()
         {
             return true;
         }
-        // SSH sessions from Windows (e.g. Alacritty) may set SKS_PLATFORM.
         if std::env::var_os("SKS_PLATFORM").is_some_and(|v| v == "WINDOWS") {
             return true;
         }
-        // SSH without distinguishing env vars — could be Terminal.app which
-        // does NOT support hyperlinks. Cater to lowest common denominator.
-        if std::env::var_os("SSH_TTY").is_some()
-            || std::env::var_os("TERM_PROGRAM").is_some_and(|term| term == "Apple_Terminal")
-        {
-            return false;
-        }
-        // Konsole or other local xterm-256color terminal
-        return true;
     }
+
     false
 }

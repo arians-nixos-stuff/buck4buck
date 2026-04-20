@@ -197,9 +197,9 @@ impl HealthCheckSubscriber {
             if send_test_threshold {
                 if let Ok(val) = std::env::var("BUCK2_TEST_SLOW_BUILD_CHECK") {
                     if let (Ok(secs), Some(sender)) = (val.parse::<u64>(), &mut self.event_sender) {
-                        let _ = sender.try_send(HealthCheckEvent::HealthCheckContextEvent(
+                        drop(sender.try_send(HealthCheckEvent::HealthCheckContextEvent(
                             HealthCheckContextEvent::TestSlowBuildThreshold(secs),
-                        ));
+                        )));
                     }
                 }
             }

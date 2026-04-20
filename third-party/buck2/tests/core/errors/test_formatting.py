@@ -18,6 +18,12 @@ from buck2.tests.e2e_util.helper.golden import golden
 
 
 def _sanitize(s: str) -> str:
+    # Remove UUIDs
+    s = re.sub(
+        r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b",
+        "<UUID>",
+        s,
+    )
     # Remove configuration hashes
     s = re.sub(r"\b[0-9a-f]{16}\b", "<HASH>", s)
     # And action digests

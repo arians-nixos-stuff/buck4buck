@@ -1801,11 +1801,7 @@ mod tests {
         };
 
         // Verify we have the right output on intermediate frames
-        if cfg!(fbcode_build) {
-            assert_frame_contains(&frame, "Buck UI:");
-        } else {
-            assert_frame_contains(&frame, "Build ID:");
-        }
+        assert_frame_contains(&frame, "Buck UI:");
         assert_frame_contains(&frame, "Network:");
         assert_frame_contains(&frame, "(reSessionID-123)");
         assert_frame_contains(&frame, "Remaining");
@@ -1840,6 +1836,7 @@ mod tests {
             DrawMode::Normal,
         )?;
 
+        // Buck UI/Build ID + Test UI, each on one line
         assert_eq!(full.len(), 2);
 
         let multiline = SessionInfoComponent {
@@ -1854,6 +1851,8 @@ mod tests {
             DrawMode::Normal,
         )?;
 
+        // Width too narrow for all on one line, so each splits into header + value:
+        // Buck UI header, Buck UI value, Test UI header, Test UI value
         assert_eq!(multiline.len(), 4);
 
         let too_small = SessionInfoComponent {

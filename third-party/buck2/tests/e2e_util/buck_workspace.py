@@ -455,13 +455,30 @@ def _maybe_setup_prelude_and_ovr_config(path: Path) -> None:
     # has a discusion on bettter approaches.
     if "OVR_CONFIG" not in os.environ:
         return
+
+    # OVR_CONFIG can be set to "1" as a flag, or to an actual path.
+    # When it's a path, use it. Otherwise, try relative paths from parent dir.
+    ovr_config_env = os.environ.get("OVR_CONFIG", "")
+    if ovr_config_env and ovr_config_env != "1" and Path(ovr_config_env).exists():
+        ovr_config_src = Path(ovr_config_env)
+    else:
+        ovr_config_src = Path(os.pardir, "arvr", "tools", "build_defs", "config")
+
+    fbcode_macros_src = Path(os.pardir, "tools", "build_defs", "fbcode_macros")
+
+    # Skip copying if source directories don't exist (e.g., in remote execution)
+    if not ovr_config_src.exists():
+        return
+    if not fbcode_macros_src.exists():
+        return
+
     _copytree(
-        Path(os.pardir, "arvr", "tools", "build_defs", "config"),
+        ovr_config_src,
         Path(path, "arvr", "tools", "build_defs", "config"),
     )
 
     _copytree(
-        Path(os.pardir, "tools", "build_defs", "fbcode_macros"),
+        fbcode_macros_src,
         Path(path, "tools", "build_defs", "fbcode_macros"),
     )
 

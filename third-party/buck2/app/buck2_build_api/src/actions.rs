@@ -233,6 +233,13 @@ pub trait Action: Allocative + Debug + Send + Sync + 'static {
         None
     }
 
+    /// Whether this action opts into eager materialization of inputs.
+    /// When enabled, input artifacts will start materializing at low priority
+    /// immediately after they get declared
+    fn eager_materialization_enabled(&self) -> bool {
+        false
+    }
+
     // TODO this probably wants more data for execution, like printing a short_name and the target
 }
 

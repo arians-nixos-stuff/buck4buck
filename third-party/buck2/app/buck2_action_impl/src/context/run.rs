@@ -296,6 +296,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
         #[starlark(require = named, default = NoneOr::None)] expect_eligible_for_dedupe: NoneOr<
             bool,
         >,
+        #[starlark(require = named, default = false)] eager_materialization_enabled: bool,
     ) -> starlark::Result<NoneType> {
         if incremental_remote_outputs && !no_outputs_cleanup {
             // Precaution to make sure content-based paths are not involved.
@@ -596,6 +597,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
         let action = UnregisteredRunAction {
             executor_preference,
             always_print_stderr,
+            eager_materialization_enabled,
             weight,
             low_pass_filter,
             dep_files: dep_files_configuration,

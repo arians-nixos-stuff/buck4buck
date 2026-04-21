@@ -72,6 +72,7 @@ use itertools::Itertools;
 use termwiz::istty::IsTty;
 use tokio::sync::mpsc::Receiver;
 
+use crate::agent_context::AgentContextEntry;
 use crate::client_ctx::ClientCommandContext;
 use crate::client_metadata::ClientMetadata;
 use crate::common::CommonBuildConfigurationOptions;
@@ -214,6 +215,7 @@ pub struct InvocationRecorder {
     daemon_was_started: Option<buck2_data::DaemonWasStartedReason>,
     should_restart: bool,
     client_metadata: Vec<buck2_data::ClientMetadata>,
+    agent_context: Vec<buck2_data::AgentContextEntry>,
     command_errors: Vec<ErrorReport>,
     exit_code: Option<u32>,
     exit_result_name: Option<String>,
@@ -427,6 +429,7 @@ impl InvocationRecorder {
             daemon_was_started: None,
             should_restart: false,
             client_metadata: Vec::new(),
+            agent_context: Vec::new(),
             command_errors: Vec::new(),
             exit_code: None,
             exit_result_name: None,
@@ -539,6 +542,13 @@ impl InvocationRecorder {
                 client_id_from_client_metadata.to_owned(),
             );
         }
+
+        self.agent_context = ctx
+            .agent_context
+            .iter()
+            .map(AgentContextEntry::to_proto)
+            .collect();
+
         self.command_name = Some(command_name);
     }
 
@@ -1114,6 +1124,7 @@ impl InvocationRecorder {
             daemon_was_started: self.daemon_was_started.map(|t| t as i32),
             should_restart: Some(self.should_restart),
             client_metadata: std::mem::take(&mut self.client_metadata),
+            agent_context: std::mem::take(&mut self.agent_context),
             errors,
             target_rule_type_names: std::mem::take(&mut self.target_rule_type_names),
             new_configs_used: Some(self.has_new_buckconfigs),

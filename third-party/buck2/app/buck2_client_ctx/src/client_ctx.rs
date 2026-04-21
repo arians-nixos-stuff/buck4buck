@@ -31,6 +31,7 @@ use dupe::Dupe;
 use superconsole::Stdin;
 use tokio::runtime::Runtime;
 
+use crate::agent_context::AgentContextEntry;
 use crate::client_metadata::ClientMetadata;
 use crate::common::BuckArgMatches;
 use crate::common::CommonEventLogOptions;
@@ -67,6 +68,7 @@ pub struct ClientCommandContext<'a> {
     oncall: Option<String>,
     pub(crate) client_metadata: Vec<ClientMetadata>,
     pub(crate) isolation: FileNameBuf,
+    pub(crate) agent_context: Vec<AgentContextEntry>,
 }
 
 impl<'a> ClientCommandContext<'a> {
@@ -86,6 +88,7 @@ impl<'a> ClientCommandContext<'a> {
         oncall: Option<String>,
         client_metadata: Vec<ClientMetadata>,
         isolation: FileNameBuf,
+        agent_context: Vec<AgentContextEntry>,
     ) -> Self {
         ClientCommandContext {
             init,
@@ -103,6 +106,7 @@ impl<'a> ClientCommandContext<'a> {
             oncall,
             client_metadata,
             isolation,
+            agent_context,
         }
     }
 
@@ -283,6 +287,14 @@ impl<'a> ClientCommandContext<'a> {
             representative_config_flags: Vec::new(),
             exit_when: Default::default(),
             profile_pattern_opts: None,
+            agent_context: self
+                .agent_context
+                .iter()
+                .map(|e| buck2_data::AgentContextEntry {
+                    key: e.key.clone(),
+                    value: e.value.clone(),
+                })
+                .collect(),
         })
     }
 

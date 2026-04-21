@@ -15,6 +15,7 @@
 #![feature(try_trait_v2)]
 #![feature(used_with_arg)]
 
+pub mod agent_context;
 pub mod argfiles;
 pub mod client_cpu_tracker;
 pub mod client_ctx;

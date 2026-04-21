@@ -2815,6 +2815,9 @@ message InvocationRecord {
   // Peak memory pressure (PSI full avg60 %) of all Buck2
   // processes during the invocation, from allprocs cgroup memory.pressure.
   double memory_max_pressure_60s_avg_allprocs = 436;
+
+  // Agent context entries passed via --agent-context.
+  repeated AgentContextEntry agent_context = 437;
 }
 
 enum InvocationOutcome {
@@ -2845,6 +2848,12 @@ message BuildTarget {
 }
 
 message ClientMetadata {
+  string key = 1;
+  string value = 2;
+}
+
+// A single agent context key-value pair passed via --agent-context.
+message AgentContextEntry {
   string key = 1;
   string value = 2;
 }

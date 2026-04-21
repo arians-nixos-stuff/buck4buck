@@ -36,6 +36,8 @@ use buck2_client::commands::status::StatusCommand;
 use buck2_client::commands::subscribe::SubscribeCommand;
 use buck2_client::commands::targets::TargetsCommand;
 use buck2_client::commands::test::TestCommand;
+use buck2_client_ctx::agent_context::AgentContextEntry;
+use buck2_client_ctx::agent_context::parse_agent_context;
 use buck2_client_ctx::argfiles::expand_argv;
 use buck2_client_ctx::client_ctx::BuckSubcommand;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
@@ -130,6 +132,15 @@ struct BeforeSubcommandOptions {
     /// datasets.
     #[clap(long, global = true, value_parser = buck_error_clap_parser(parse_client_metadata))]
     client_metadata: Vec<ClientMetadata>,
+
+    /// Agent context key=value pairs for telemetry.
+    /// Used by AI agents to pass structured metadata. Schema is defined via buckconfig.
+    /// Entries can be comma-separated or passed as separate flags.
+    /// Examples:
+    ///   --agent-context intent=fix,attempt=2,prior_error=missing_target
+    ///   --agent-context intent=build --agent-context attempt=1
+    #[clap(long, global = true, value_delimiter = ',', value_parser = buck_error_clap_parser(parse_agent_context))]
+    agent_context: Vec<AgentContextEntry>,
 
     /// Do not launch a daemon process, run buck server in client process.
     ///
@@ -486,6 +497,7 @@ impl CommandKind {
             common_opts.oncall,
             common_opts.client_metadata,
             common_opts.isolation_dir,
+            common_opts.agent_context,
         );
         if let Some(recorder) = events_ctx.recorder.as_mut() {
             recorder.update_for_client_ctx(&command_ctx, self.command_name());

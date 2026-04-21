@@ -235,6 +235,9 @@ pub struct ServerCommandContext<'a> {
     /// Sanitized argument vector from the CLI from the client side.
     pub(crate) sanitized_argv: Vec<String>,
 
+    /// Agent context key=value pairs from --agent-context.
+    pub(crate) agent_context: Vec<buck2_data::AgentContextEntry>,
+
     cancellations: &'a CancellationContext,
 
     preemptible: PreemptibleWhen,
@@ -355,6 +358,7 @@ impl<'a> ServerCommandContext<'a> {
             daemon_uuid_from_client: client_context.daemon_uuid.clone(),
             command_name: client_context.command_name.clone(),
             sanitized_argv: client_context.sanitized_argv.clone(),
+            agent_context: client_context.agent_context.clone(),
             debugger_handle,
             cancellations,
             preemptible: client_context.preemptible(),
@@ -587,6 +591,19 @@ impl DiceUpdater for DiceCommandUpdater<'_, '_> {
     ) -> buck2_error::Result<(DiceTransactionUpdater, UserComputationData)> {
         let existing_state = &mut ctx.existing_state().await.clone();
         let cells_and_configs = self.cmd_ctx.load_new_configs(existing_state).await?;
+
+        // Validate agent context against buckconfig schema if entries were provided.
+        if !self.cmd_ctx.agent_context.is_empty() {
+            let schema = crate::agent_context_validation::AgentContextSchema::from_config(
+                &cells_and_configs.root_config,
+            );
+            crate::agent_context_validation::validate_agent_context(
+                &schema,
+                self.cmd_ctx.client_id_from_client_metadata.as_deref(),
+                &self.cmd_ctx.agent_context,
+            )?;
+        }
+
         let cell_resolver = cells_and_configs.cell_resolver;
 
         let configuror = BuildInterpreterConfiguror::new(

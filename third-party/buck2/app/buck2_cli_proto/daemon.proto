@@ -190,6 +190,9 @@ message ClientContext {
   /// Options for starlark profiling via --profile-patterns and related
   /// arguments.
   optional ProfilePatternOptions profile_pattern_opts = 25;
+
+  // Agent context key=value pairs passed via --agent-context.
+  repeated buck.data.AgentContextEntry agent_context = 27;
 }
 
 message TargetsRequest {

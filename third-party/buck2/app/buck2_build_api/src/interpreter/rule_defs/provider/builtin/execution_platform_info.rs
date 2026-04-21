@@ -83,7 +83,11 @@ impl<'v, V: ValueLike<'v>> ExecutionPlatformInfoGen<V> {
             cfg.constraints.insert(key.clone(), value.clone());
         }
 
-        let cfg = ConfigurationData::from_platform(TargetLabel::to_string(target), cfg, true)?;
+        let cfg = ConfigurationData::from_platform(
+            TargetLabel::to_string(target),
+            cfg,
+            marker_constraint.is_some(),
+        )?;
         let executor_config =
             StarlarkCommandExecutorConfig::from_value(self.executor_config.get().to_value())
                 .ok_or_else(|| {

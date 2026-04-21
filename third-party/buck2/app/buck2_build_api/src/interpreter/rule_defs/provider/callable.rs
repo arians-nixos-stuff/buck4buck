@@ -39,6 +39,7 @@ use starlark::eval::Evaluator;
 use starlark::eval::ParametersSpec;
 use starlark::eval::ParametersSpecParam;
 use starlark::eval::param_specs;
+use starlark::register_starlark_any;
 use starlark::type_matcher;
 use starlark::typing::Ty;
 use starlark::typing::TyCallable;
@@ -240,6 +241,8 @@ pub(crate) struct UserProviderCallableData {
     pub(crate) ty_provider_type_instance_id: TypeInstanceId,
     pub(crate) fields: IndexMap<String, UserProviderField, StarlarkHasherSmallPromoteBuilder>,
 }
+
+register_starlark_any!(UserProviderCallableData);
 
 /// Initialized after the name is assigned to the provider.
 #[derive(Debug, Trace, Allocative)]

@@ -255,10 +255,14 @@ impl Action for WriteJsonAction {
                     }
                     .as_ref(),
                 )?;
+                let configuration_path = ctx
+                    .materializer()
+                    .maybe_eager_configuration_path(fs, self.output.get_path())?;
                 Ok(vec![WriteRequest {
                     path,
                     content,
                     is_executable: false,
+                    configuration_path,
                 }])
             }))
             .await?

@@ -9,6 +9,7 @@
  */
 
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::fmt;
 use std::sync::Arc;
 use std::sync::Weak;
@@ -54,12 +55,14 @@ impl<T: 'static> fmt::Debug for EagerPathLease<T> {
 
 pub(super) struct EagerMaterializations<T: 'static> {
     active: HashMap<ProjectRelativePathBuf, Weak<EagerPathLease<T>>>,
+    bridged_declares: HashMap<ProjectRelativePathBuf, HashSet<ProjectRelativePathBuf>>,
 }
 
 impl<T: 'static> EagerMaterializations<T> {
     pub(super) fn new() -> Self {
         Self {
             active: HashMap::new(),
+            bridged_declares: HashMap::default(),
         }
     }
 
@@ -95,14 +98,43 @@ impl<T: 'static> EagerMaterializations<T> {
             .is_some_and(|lease| lease.upgrade().is_some())
     }
 
-    pub(super) fn release(&mut self, path: &ProjectRelativePath) -> bool {
+    /// For bridged content-based declares, remembers the actual declared path so release can
+    /// cancel the in-flight low-priority work later.
+    pub(super) fn add_bridged_declare(
+        &mut self,
+        eager_path: &ProjectRelativePath,
+        declared_path: &ProjectRelativePath,
+    ) {
+        if eager_path == declared_path {
+            return;
+        }
+
+        self.bridged_declares
+            .entry(eager_path.to_owned())
+            .or_default()
+            .insert(declared_path.to_owned());
+    }
+
+    /// Releases a registered eager path. When the last lease goes away, returns all paths whose
+    /// low-priority materialization should be cancelled: the registered path itself plus any
+    /// bridged declared paths that were triggered by it.
+    pub(super) fn release(
+        &mut self,
+        path: &ProjectRelativePath,
+    ) -> Option<Vec<ProjectRelativePathBuf>> {
         match self.active.remove_entry(path) {
-            Some((_path, lease)) if lease.upgrade().is_none() => true,
+            Some((_path, lease)) if lease.upgrade().is_none() => {
+                let mut paths_to_cancel = vec![path.to_owned()];
+                if let Some(bridged_paths) = self.bridged_declares.remove(path) {
+                    paths_to_cancel.extend(bridged_paths);
+                }
+                Some(paths_to_cancel)
+            }
             Some((path, lease)) => {
                 self.active.insert(path, lease);
-                false
+                None
             }
-            None => false,
+            None => None,
         }
     }
 }

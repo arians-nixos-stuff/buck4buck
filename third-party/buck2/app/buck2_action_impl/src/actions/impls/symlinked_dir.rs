@@ -298,8 +298,12 @@ impl Action for SymlinkedDirAction {
             })
             .collect_vec();
 
+        let configuration_path = ctx
+            .materializer()
+            .maybe_eager_configuration_path(ctx.fs(), self.output().get_path())?;
+
         ctx.materializer()
-            .declare_copy(actual_output, value.dupe(), srcs)
+            .declare_copy(actual_output, value.dupe(), srcs, configuration_path)
             .await?;
         Ok((
             ActionOutputs::from_single(self.output().get_path().dupe(), value),

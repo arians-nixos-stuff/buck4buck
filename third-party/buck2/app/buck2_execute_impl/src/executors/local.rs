@@ -960,13 +960,18 @@ impl LocalExecutor {
                                 &configuration_hash_path,
                             )?;
                             let symlink_value = builder.build(&configuration_hash_path)?;
-                            configuration_path_to_content_based_path_symlinks
-                                .push((configuration_hash_path, symlink_value));
-
+                            let cfg_path = if self.materializer.is_eager_materialization_enabled() {
+                                Some(configuration_hash_path.clone())
+                            } else {
+                                None
+                            };
                             to_declare.push(DeclareArtifactPayload {
                                 path: output_path.clone(),
                                 artifact: value.dupe(),
+                                configuration_path: None,
                             });
+                            configuration_path_to_content_based_path_symlinks
+                                .push((configuration_hash_path, symlink_value));
                             output_path_to_content_based_path_copies.push((
                                 hashed_path.clone(),
                                 value.dupe(),
@@ -976,11 +981,13 @@ impl LocalExecutor {
                                     dest_entry: value.entry().dupe().map_dir(|d| d.as_immutable()),
                                     executable_bit_override: None,
                                 }],
+                                cfg_path,
                             ));
                         } else {
                             to_declare.push(DeclareArtifactPayload {
                                 path: output_path,
                                 artifact: value.dupe(),
+                                configuration_path: None,
                             });
                         }
                     }
@@ -1002,16 +1009,16 @@ impl LocalExecutor {
             .collect();
         self.materializer.declare_existing(to_declare).await?;
         buck2_util::future::try_join_all(output_path_to_content_based_path_copies.into_iter().map(
-            |(path, value, copied_artifacts)| {
+            |(path, value, copied_artifacts, cfg_path)| {
                 self.materializer
-                    .declare_copy(path, value, copied_artifacts)
+                    .declare_copy(path, value, copied_artifacts, cfg_path)
             },
         ))
         .await?;
         buck2_util::future::try_join_all(
             configuration_path_to_content_based_path_symlinks
                 .into_iter()
-                .map(|(path, value)| self.materializer.declare_copy(path, value, vec![])),
+                .map(|(path, value)| self.materializer.declare_copy(path, value, vec![], None)),
         )
         .await?;
 
@@ -1406,7 +1413,7 @@ pub async fn materialize_inputs(
     buck2_util::future::try_join_all(
         configuration_path_to_content_based_path_symlinks
             .into_iter()
-            .map(|(path, value)| materializer.declare_copy(path, value, vec![])),
+            .map(|(path, value)| materializer.declare_copy(path, value, vec![], None)),
     )
     .await?;
 

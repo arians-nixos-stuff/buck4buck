@@ -406,6 +406,7 @@ async fn declare_all_source_artifacts(
             path,
             content: entry.contents.to_vec(),
             is_executable: entry.metadata.is_executable,
+            configuration_path: None,
         });
     }
 

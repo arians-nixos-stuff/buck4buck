@@ -222,7 +222,11 @@ impl<T> std::fmt::Debug for MaterializerCommand<T> {
                 )
             }
             MaterializerCommand::Declare(
-                DeclareArtifactPayload { path, artifact },
+                DeclareArtifactPayload {
+                    path,
+                    artifact,
+                    configuration_path: _,
+                },
                 method,
                 _dispatcher,
                 _parent_id,
@@ -463,24 +467,24 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
     }
 
     fn release_eager_path(&mut self, path: Arc<ProjectRelativePathBuf>) {
-        let should_release = self.eager_materializations.release(&path);
-        if !should_release {
-            return;
+        if let Some(paths_to_cancel) = self.eager_materializations.release(&path) {
+            for path in paths_to_cancel {
+                self.cancel_eager_materialization_if_low(&path);
+            }
         }
+    }
 
+    fn cancel_eager_materialization_if_low(&mut self, path: &ProjectRelativePath) {
         if let Some((_artifact_path, data)) =
-            Self::find_artifact_containing_path(&mut self.tree, &path)
-        {
-            if let Processing::Active {
+            Self::find_artifact_containing_path(&mut self.tree, path)
+            && let Processing::Active {
                 future: ProcessingFuture::Materializing(_),
                 priority_control,
                 ..
             } = &data.processing
-            {
-                if matches!(priority_control.priority(), Priority::Low) {
-                    priority_control.cancel();
-                }
-            }
+            && matches!(priority_control.priority(), Priority::Low)
+        {
+            priority_control.cancel();
         }
     }
 
@@ -621,7 +625,12 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 result_sender.send(result).ok();
             }
             MaterializerCommand::DeclareExisting(artifacts, ..) => {
-                for DeclareArtifactPayload { path, artifact } in artifacts {
+                for DeclareArtifactPayload {
+                    path,
+                    artifact,
+                    configuration_path: _,
+                } in artifacts
+                {
                     self.declare_existing(&path, artifact);
                 }
             }
@@ -630,6 +639,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 DeclareArtifactPayload {
                     path,
                     artifact: value,
+                    configuration_path,
                 },
                 method,
                 event_dispatcher,
@@ -647,11 +657,20 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
 
                 if self.subscriptions.should_materialize_eagerly(&path) {
                     self.materialize_artifact(&path, event_dispatcher);
-                } else if self
-                    .eager_materializations
-                    .should_materialize_eagerly(&path)
-                {
-                    self.materialize_artifact_with_priority(&path, event_dispatcher, Priority::Low);
+                } else {
+                    let eager_path = configuration_path.as_deref().unwrap_or(&path);
+                    if self
+                        .eager_materializations
+                        .should_materialize_eagerly(eager_path)
+                    {
+                        self.eager_materializations
+                            .add_bridged_declare(eager_path, &path);
+                        self.materialize_artifact_with_priority(
+                            &path,
+                            event_dispatcher,
+                            Priority::Low,
+                        );
+                    }
                 }
             }),
             MaterializerCommand::MatchArtifacts(paths, sender) => {

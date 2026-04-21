@@ -288,10 +288,14 @@ impl Action for WriteAction {
                     }
                     .as_ref(),
                 )?;
+                let configuration_path = ctx
+                    .materializer()
+                    .maybe_eager_configuration_path(fs, self.output.get_path())?;
                 Ok(vec![WriteRequest {
                     path,
                     content,
                     is_executable: self.inner.is_executable,
+                    configuration_path,
                 }])
             }))
             .await?

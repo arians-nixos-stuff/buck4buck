@@ -16,6 +16,8 @@ use async_trait::async_trait;
 use buck2_common::file_ops::metadata::FileMetadata;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
+use buck2_core::fs::artifact_path_resolver::ArtifactFs;
+use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_directory::directory::directory_iterator::DirectoryIterator;
 use buck2_directory::directory::entry::DirectoryEntry;
@@ -49,6 +51,8 @@ pub struct WriteRequest {
     pub path: ProjectRelativePathBuf,
     pub content: Vec<u8>,
     pub is_executable: bool,
+    /// For content-based artifacts, the configuration-based path used for eager materialization lookups.
+    pub configuration_path: Option<ProjectRelativePathBuf>,
 }
 
 #[cold]
@@ -136,6 +140,8 @@ pub enum MaterializationError {
 pub struct DeclareArtifactPayload {
     pub path: ProjectRelativePathBuf,
     pub artifact: ArtifactValue,
+    /// For content-based artifacts, the configuration-based path used for eager materialization lookups.
+    pub configuration_path: Option<ProjectRelativePathBuf>,
 }
 
 /// A trait providing methods to asynchronously materialize artifacts.
@@ -179,6 +185,7 @@ pub trait Materializer: Allocative + Send + Sync + 'static {
         path: ProjectRelativePathBuf,
         value: ArtifactValue,
         srcs: Vec<CopiedArtifact>,
+        configuration_path: Option<ProjectRelativePathBuf>,
     ) -> buck2_error::Result<()>;
 
     async fn declare_cas_many_impl<'a, 'b>(
@@ -191,6 +198,7 @@ pub trait Materializer: Allocative + Send + Sync + 'static {
         &self,
         path: ProjectRelativePathBuf,
         info: HttpDownloadInfo,
+        configuration_path: Option<ProjectRelativePathBuf>,
     ) -> buck2_error::Result<()>;
 
     /// Write contents to paths. The output is ordered in the same order as the input. Implicitly
@@ -329,6 +337,20 @@ pub trait Materializer: Allocative + Send + Sync + 'static {
         false
     }
 
+    /// Returns the configuration-hash path to use for eager materialization lookups when the
+    /// feature is enabled for a content-based artifact path.
+    fn maybe_eager_configuration_path(
+        &self,
+        fs: &ArtifactFs,
+        path: &BuildArtifactPath,
+    ) -> buck2_error::Result<Option<ProjectRelativePathBuf>> {
+        if self.is_eager_materialization_enabled() && path.is_content_based_path() {
+            Ok(Some(fs.resolve_build_configuration_hash_path(path)?))
+        } else {
+            Ok(None)
+        }
+    }
+
     /// Register paths for eager materialization. When artifacts are declared at these paths,
     /// they will be materialized at low priority. Returns a guard that, when dropped,
     /// unregisters the paths and cancels any in-flight low-priority materializations.
@@ -377,9 +399,11 @@ impl dyn Materializer {
         path: ProjectRelativePathBuf,
         value: ArtifactValue,
         srcs: Vec<CopiedArtifact>,
+        configuration_path: Option<ProjectRelativePathBuf>,
     ) -> buck2_error::Result<()> {
         self.check_declared_external_symlink(&value)?;
-        self.declare_copy_impl(path, value, srcs).await
+        self.declare_copy_impl(path, value, srcs, configuration_path)
+            .await
     }
 
     /// Declares a list of artifacts whose files can be materialized by

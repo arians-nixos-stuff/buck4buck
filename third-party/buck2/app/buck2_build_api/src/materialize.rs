@@ -137,7 +137,7 @@ async fn materialize_artifact_group(
                             let symlink_value = builder.build(&configuration_hash_path)?;
 
                             materializer
-                            .declare_copy(configuration_hash_path.clone(), symlink_value, Vec::new())
+                            .declare_copy(configuration_hash_path.clone(), symlink_value, Vec::new(), None)
                             .await
                             .buck_error_context(
                                 "Failed to declare configuration path to content-based path symlinks",

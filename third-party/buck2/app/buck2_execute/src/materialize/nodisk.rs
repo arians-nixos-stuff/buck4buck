@@ -57,6 +57,7 @@ impl Materializer for NoDiskMaterializer {
         _path: ProjectRelativePathBuf,
         _value: ArtifactValue,
         _srcs: Vec<CopiedArtifact>,
+        _configuration_path: Option<ProjectRelativePathBuf>,
     ) -> buck2_error::Result<()> {
         Ok(())
     }
@@ -73,6 +74,7 @@ impl Materializer for NoDiskMaterializer {
         &self,
         _path: ProjectRelativePathBuf,
         _info: HttpDownloadInfo,
+        _configuration_path: Option<ProjectRelativePathBuf>,
     ) -> buck2_error::Result<()> {
         Ok(())
     }

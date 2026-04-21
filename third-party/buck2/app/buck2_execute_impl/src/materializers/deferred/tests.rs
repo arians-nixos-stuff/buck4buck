@@ -406,6 +406,7 @@ mod state_machine {
                 path: path.clone(),
                 content: contents.to_vec(),
                 is_executable: false,
+                configuration_path: None,
             }])
         }))
         .await?;
@@ -1494,6 +1495,7 @@ mod state_machine {
     fn eager_declare<T: IoHandler>(
         dm: &mut DeferredMaterializerCommandProcessor<T>,
         path: &ProjectRelativePathBuf,
+        configuration_path: Option<ProjectRelativePathBuf>,
     ) {
         let digest_config = dm.io.digest_config();
         let value = ArtifactValue::file(digest_config.empty_file());
@@ -1501,6 +1503,7 @@ mod state_machine {
             DeclareArtifactPayload {
                 path: path.clone(),
                 artifact: value,
+                configuration_path,
             },
             Box::new(ArtifactMaterializationMethod::Test),
             EventDispatcher::null(),
@@ -1520,7 +1523,7 @@ mod state_machine {
             let leases = dm
                 .eager_materializations
                 .register(vec![path.clone()], &sender);
-            eager_declare(&mut dm, &path);
+            eager_declare(&mut dm, &path, None);
             assert_eq!(dm.io.take_log(), &[(Op::Clean, path.clone())]);
 
             let priority_control = get_priority_control(&mut dm, &path);
@@ -1558,7 +1561,7 @@ mod state_machine {
             let leases = dm
                 .eager_materializations
                 .register(vec![path.clone()], &sender);
-            eager_declare(&mut dm, &path);
+            eager_declare(&mut dm, &path, None);
             assert_eq!(dm.io.take_log(), &[(Op::Clean, path.clone())]);
             assert_eq!(
                 get_priority_control(&mut dm, &path).priority(),
@@ -1609,7 +1612,7 @@ mod state_machine {
                 .register(vec![path.clone()], &sender);
 
             // Declare → eager materialization at Low
-            eager_declare(&mut dm, &path);
+            eager_declare(&mut dm, &path, None);
             assert_eq!(dm.io.take_log(), &[(Op::Clean, path.clone())]);
             assert_eq!(
                 get_priority_control(&mut dm, &path).priority(),
@@ -1643,6 +1646,43 @@ mod state_machine {
             assert!(
                 cancel_token.is_cancelled(),
                 "Should cancel after all leases released"
+            );
+        })
+        .await
+    }
+
+    /// Register config path → declare content-hash path with configuration_path → release cancels bridged path.
+    #[tokio::test]
+    async fn test_eager_configuration_path_lookup_and_release() {
+        ignore_stack_overflow_checks_for_future(async {
+            let artifact_path = make_path("buck-out/v2/gen/content-hash/foo/bar");
+            let config_path = make_path("buck-out/v2/gen/config-hash/foo/bar");
+            let (mut dm, _) = make_processor(Default::default());
+
+            let sender = dm.command_sender.dupe();
+            let leases = dm
+                .eager_materializations
+                .register(vec![config_path.clone()], &sender);
+
+            eager_declare(&mut dm, &artifact_path, Some(config_path.clone()));
+            assert_eq!(dm.io.take_log(), &[(Op::Clean, artifact_path.clone())]);
+            assert_eq!(
+                get_priority_control(&mut dm, &artifact_path).priority(),
+                Priority::Low,
+                "configuration_path lookup should trigger eager materialization at Low"
+            );
+
+            let cancel_token = get_priority_control(&mut dm, &artifact_path)
+                .cancel_token()
+                .clone();
+            drop(leases);
+            dm.testing_process_one_command(MaterializerCommand::ReleaseEagerPath(Arc::new(
+                config_path,
+            )));
+
+            assert!(
+                cancel_token.is_cancelled(),
+                "Releasing configuration_path should cancel bridged low-priority materialization"
             );
         })
         .await

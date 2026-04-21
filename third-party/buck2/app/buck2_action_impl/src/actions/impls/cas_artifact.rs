@@ -333,12 +333,16 @@ impl Action for CasArtifactAction {
             }
             .as_ref(),
         )?;
+        let configuration_path = ctx
+            .materializer()
+            .maybe_eager_configuration_path(ctx.fs(), self.output.get_path())?;
         ctx.materializer()
             .declare_cas_many(
                 Arc::new(CasDownloadInfo::new_declared(self.inner.re_use_case)),
                 vec![DeclareArtifactPayload {
                     path,
                     artifact: value.dupe(),
+                    configuration_path,
                 }],
             )
             .await?;

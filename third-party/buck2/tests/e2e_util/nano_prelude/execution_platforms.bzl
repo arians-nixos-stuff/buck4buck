@@ -16,14 +16,19 @@ def _execution_platforms(ctx):
         executor_config = CommandExecutorConfig(local_enabled = True, remote_enabled = False),
     )]
 
+    kwargs = {}
+    if ctx.attrs.exec_marker_constraint:
+        kwargs["exec_marker_constraint"] = ctx.attrs.exec_marker_constraint
+
     return [
         DefaultInfo(),
-        ExecutionPlatformRegistrationInfo(platforms = platforms),
+        ExecutionPlatformRegistrationInfo(platforms = platforms, **kwargs),
     ]
 
 execution_platforms = rule(
     impl = _execution_platforms,
     attrs = {
+        "exec_marker_constraint": attrs.option(attrs.string(), default = None),
         "platforms": attrs.option(attrs.list(attrs.dep(providers = [ExecutionPlatformInfo])), default = None),
     },
 )

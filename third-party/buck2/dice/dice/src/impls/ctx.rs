@@ -800,7 +800,7 @@ impl CoreCtx {
 #[derivative(Debug)]
 pub(crate) struct SharedLiveTransactionCtx {
     version: VersionNumber,
-    version_epoch: VersionEpoch,
+    pub(crate) version_epoch: VersionEpoch,
     #[derivative(Debug = "ignore")]
     cache: SharedCache,
 }
@@ -966,50 +966,5 @@ impl EvaluationData {
 
     pub(crate) fn into_activation_data(self) -> ActivationData {
         ActivationData::Evaluated(self.0)
-    }
-}
-
-#[cfg(test)]
-pub(crate) mod testing {
-    use crate::impls::cache::DiceTaskRef;
-    use crate::impls::core::versions::VersionEpoch;
-    use crate::impls::ctx::SharedLiveTransactionCtx;
-    use crate::impls::key::DiceKey;
-    use crate::impls::key::ParentKey;
-    use crate::impls::task::promise::DiceSyncResult;
-    use crate::impls::task::sync_dice_task;
-    use crate::impls::value::DiceComputedValue;
-
-    impl SharedLiveTransactionCtx {
-        pub(crate) fn inject(&self, k: DiceKey, v: DiceComputedValue) {
-            // TODO(cjhopman): We should delete this. tests using it are doing weird things and
-            // causing the transaction cache to be out of sync with what is possible in real
-            // execution and it makes things really difficult to reason about. These tests
-            // should be constructing the states they want to test via valid interactions
-            // with things.
-            let task = unsafe {
-                // SAFETY: completed immediately below
-                sync_dice_task(k)
-            };
-            let _r = task
-                .depended_on_by(ParentKey::None)
-                .unwrap()
-                .sync_get_or_complete(|| DiceSyncResult::testing(v));
-
-            match self.cache.get(k) {
-                DiceTaskRef::Computed(_) => panic!("cannot inject already computed task"),
-                DiceTaskRef::Occupied(o) => {
-                    o.replace_entry(task);
-                }
-                DiceTaskRef::Vacant(v) => {
-                    v.insert(task);
-                }
-                DiceTaskRef::TransactionCancelled => panic!("transaction cancelled"),
-            }
-        }
-
-        pub(crate) fn testing_get_epoch(&self) -> VersionEpoch {
-            self.version_epoch
-        }
     }
 }

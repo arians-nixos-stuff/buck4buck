@@ -74,14 +74,6 @@ impl MaybeValidDiceValue {
         }
     }
 
-    #[cfg(test)]
-    pub(crate) fn transient(value: std::sync::Arc<dyn DiceValueDyn>) -> Self {
-        Self {
-            value,
-            validity: DiceValidity::Transient,
-        }
-    }
-
     pub(crate) fn validity(&self) -> DiceValidity {
         self.validity
     }

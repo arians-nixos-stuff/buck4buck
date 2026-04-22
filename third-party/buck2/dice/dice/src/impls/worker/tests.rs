@@ -71,7 +71,6 @@ use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceKeyValue;
 use crate::impls::value::DiceValidValue;
 use crate::impls::value::DiceValidity;
-use crate::impls::value::MaybeValidDiceValue;
 use crate::impls::value::TrackedInvalidationPaths;
 use crate::impls::worker::CheckDependenciesResult;
 use crate::impls::worker::DiceTaskWorker;
@@ -172,86 +171,57 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
 
     let user_data = std::sync::Arc::new(UserComputationData::new());
 
-    let (ctx, _guard) = dice.testing_shared_ctx(VersionNumber::new(1)).await;
-    ctx.inject(
-        DiceKey { index: 100 },
-        DiceComputedValue::new(
-            MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(1))),
-            Arc::new(VersionRange::begins_with(VersionNumber::new(1)).into_ranges()),
-            TrackedInvalidationPaths::clean(),
-        ),
-    );
+    // Set initial value at v0
+    let mut updater = dice.updater();
+    updater.changed_to(vec![(K, 1)]).unwrap();
+    let v0 = updater.commit().await.0.get_version();
+
+    // Change value at v1
+    let mut updater = dice.updater();
+    updater.changed_to(vec![(K, 2)]).unwrap();
+    let v1 = updater.commit().await.0.get_version();
+
+    let dep_key = dice.key_index.index_key(K);
+
+    let (ctx, _guard) = dice.testing_shared_ctx(v1).await;
     let eval = AsyncEvaluator {
         per_live_version_ctx: ctx.dupe(),
         user_data: user_data.dupe(),
         dice: dice.dupe(),
     };
 
+    // Dep changed between v0 and v1
     assert!(
         check_dependencies(
             &eval,
             ParentKey::None,
-            &SeriesParallelDeps::serial_from_vec(vec![DiceKey { index: 100 }]),
-            VersionNumber::new(0),
+            &SeriesParallelDeps::serial_from_vec(vec![dep_key]),
+            v0,
             &KeyComputingUserCycleDetectorData::Untracked,
         )
         .await?
         .is_changed()
     );
 
-    let (ctx, _guard) = dice.testing_shared_ctx(VersionNumber::new(2)).await;
-    ctx.inject(
-        DiceKey { index: 100 },
-        DiceComputedValue::new(
-            MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(1))),
-            Arc::new(VersionRange::begins_with(VersionNumber::new(1)).into_ranges()),
-            TrackedInvalidationPaths::clean(),
-        ),
-    );
+    // Advance version without changing dep value
+    let mut updater = dice.updater();
+    updater.changed_to(vec![(K, 2)]).unwrap();
+    let v2 = updater.commit().await.0.get_version();
 
+    let (ctx, _guard) = dice.testing_shared_ctx(v2).await;
     let eval = AsyncEvaluator {
         per_live_version_ctx: ctx.dupe(),
         user_data: user_data.dupe(),
         dice: dice.dupe(),
     };
 
+    // Dep did NOT change between v1 and v2 (same value)
     assert!(
         !check_dependencies(
             &eval,
             ParentKey::None,
-            &SeriesParallelDeps::serial_from_vec(vec![DiceKey { index: 100 }]),
-            VersionNumber::new(1),
-            &KeyComputingUserCycleDetectorData::Untracked,
-        )
-        .await?
-        .is_changed()
-    );
-
-    // Now we also check that when deps have transients and such.
-    // for legacy, this would deal with cycles, but modern dice will detect cycles through post
-    // processing and rely on the user cycle detector for now (which returns errors via the result.
-    let (ctx, _guard) = dice.testing_shared_ctx(VersionNumber::new(2)).await;
-    ctx.inject(
-        DiceKey { index: 200 },
-        DiceComputedValue::new(
-            MaybeValidDiceValue::transient(std::sync::Arc::new(DiceKeyValue::<K>::new(1))),
-            Arc::new(VersionRange::begins_with(VersionNumber::new(2)).into_ranges()),
-            TrackedInvalidationPaths::clean(),
-        ),
-    );
-
-    let eval = AsyncEvaluator {
-        per_live_version_ctx: ctx.dupe(),
-        user_data: user_data.dupe(),
-        dice: dice.dupe(),
-    };
-
-    assert!(
-        check_dependencies(
-            &eval,
-            ParentKey::None,
-            &SeriesParallelDeps::serial_from_vec(vec![DiceKey { index: 200 }]),
-            VersionNumber::new(1),
+            &SeriesParallelDeps::serial_from_vec(vec![dep_key]),
+            v1,
             &KeyComputingUserCycleDetectorData::Untracked,
         )
         .await?
@@ -331,7 +301,7 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
 
     let task = DiceTaskWorker::spawn(
         key.dupe(),
-        ctx.testing_get_epoch(),
+        ctx.version_epoch,
         eval.dupe(),
         UserCycleDetectorData::testing_new(),
         events.dupe(),
@@ -357,7 +327,7 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
 
     let task = DiceTaskWorker::spawn(
         key.dupe(),
-        ctx.testing_get_epoch(),
+        ctx.version_epoch,
         eval.dupe(),
         UserCycleDetectorData::testing_new(),
         events.dupe(),
@@ -592,7 +562,7 @@ async fn mismatch_epoch_results_in_cancelled_result() {
     let k = dice.key_index.index_key(Finish);
     let task = DiceTaskWorker::spawn(
         k,
-        shared_ctx.testing_get_epoch(),
+        shared_ctx.version_epoch,
         eval.dupe(),
         cycles,
         events_dispatcher.dupe(),
@@ -825,25 +795,13 @@ async fn test_values_gets_resurrect_if_deps_dont_change_regardless_of_equality()
         );
     }
 
-    /// gets a new context where the parent is dirtied such that it needs to check its deps, and the
-    /// dep has a history as provided
-    async fn ctx_with_dep_having_history(
+    /// gets a new context where the parent is dirtied such that it needs to check its deps
+    async fn ctx_after_soft_dirty(
         dice: &std::sync::Arc<Dice>,
         parent_key: DiceKey,
-        dep_history: VersionRanges,
     ) -> (SharedLiveTransactionCtx, ActiveTransactionGuard) {
         let v = soft_dirty(dice, parent_key.dupe()).await;
-        let (ctx, guard) = dice.testing_shared_ctx(v).await;
-        ctx.inject(
-            DiceKey { index: 100 },
-            DiceComputedValue::new(
-                MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(1))),
-                Arc::new(dep_history),
-                TrackedInvalidationPaths::clean(),
-            ),
-        );
-
-        (ctx, guard)
+        dice.testing_shared_ctx(v).await
     }
 
     let dice = Dice::new(DiceData::new());
@@ -856,12 +814,7 @@ async fn test_values_gets_resurrect_if_deps_dont_change_regardless_of_equality()
 
     populate_initial_graph(&dice, key.dupe(), res.dupe()).await;
 
-    let (ctx, _guard) = ctx_with_dep_having_history(
-        &dice,
-        key.dupe(),
-        VersionRanges::testing_new(vec![VersionRange::begins_with(VersionNumber::new(0))]),
-    )
-    .await;
+    let (ctx, _guard) = ctx_after_soft_dirty(&dice, key.dupe()).await;
 
     let eval = AsyncEvaluator {
         per_live_version_ctx: ctx.dupe(),
@@ -871,7 +824,7 @@ async fn test_values_gets_resurrect_if_deps_dont_change_regardless_of_equality()
 
     let task = DiceTaskWorker::spawn(
         key.dupe(),
-        ctx.testing_get_epoch(),
+        ctx.version_epoch,
         eval.dupe(),
         UserCycleDetectorData::testing_new(),
         events.dupe(),
@@ -885,12 +838,7 @@ async fn test_values_gets_resurrect_if_deps_dont_change_regardless_of_equality()
     assert!(computed_res.value().instance_equal(&res));
 
     // next version
-    let (ctx, _guard) = ctx_with_dep_having_history(
-        &dice,
-        key.dupe(),
-        VersionRanges::testing_new(vec![VersionRange::begins_with(VersionNumber::new(0))]),
-    )
-    .await;
+    let (ctx, _guard) = ctx_after_soft_dirty(&dice, key.dupe()).await;
 
     let eval = AsyncEvaluator {
         per_live_version_ctx: ctx.dupe(),
@@ -900,7 +848,7 @@ async fn test_values_gets_resurrect_if_deps_dont_change_regardless_of_equality()
 
     let task = DiceTaskWorker::spawn(
         key.dupe(),
-        ctx.testing_get_epoch(),
+        ctx.version_epoch,
         eval.dupe(),
         UserCycleDetectorData::testing_new(),
         events.dupe(),
@@ -936,7 +884,7 @@ fn update_computed_value(
 ) -> impl Future<Output = CancellableResult<DiceComputedValue>> + use<> {
     dice.state_handle.update_computed(
         VersionedGraphKey::new(v, k),
-        ctx.testing_get_epoch(),
+        ctx.version_epoch,
         StorageType::Normal,
         value,
         deps,

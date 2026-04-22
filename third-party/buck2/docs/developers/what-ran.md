@@ -50,7 +50,7 @@ Use What Ran as follows:
 
 <FbInternalOnly>
 :::note
-  For `re` or `cache`, run `frecli cas download-action HASH:SIZE` to retrieve the action, then follow the instructions to run it.
+  For `re` or `cache`, run `cas download-action HASH:SIZE` to retrieve the action, then follow the instructions to run it.
 :::
 </FbInternalOnly>
 
@@ -78,7 +78,7 @@ build  fbcode//common/init:kill (cxx_compile Kill.cpp (pic))  re  97feca9d014155
 To repro, you'd run:
 
 ```bash
-frecli cas download-action 97feca9d014155a80ec55fe27e6bb17f9d2f8574:94
+cas download-action 97feca9d014155a80ec55fe27e6bb17f9d2f8574:94
 ```
 
 </FbInternalOnly>

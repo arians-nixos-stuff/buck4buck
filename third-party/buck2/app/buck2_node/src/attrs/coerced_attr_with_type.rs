@@ -125,9 +125,9 @@ impl<'a, 't> CoercedAttrWithType<'a, 't> {
         match (attr, &ty.0.inner) {
             (CoercedAttr::Selector(s), _) => Ok(CoercedAttrWithType::Selector(s, ty)),
             (CoercedAttr::Concat(c), _) => Ok(CoercedAttrWithType::Concat(&c.0, ty)),
-            (CoercedAttr::SelectFail(c), _) => Ok(CoercedAttrWithType::SelectFail(&c, ty)),
+            (CoercedAttr::SelectFail(c), _) => Ok(CoercedAttrWithType::SelectFail(c, ty)),
             (CoercedAttr::SelectIncompatible(c), _) => {
-                Ok(CoercedAttrWithType::SelectIncompatible(&c, ty))
+                Ok(CoercedAttrWithType::SelectIncompatible(c, ty))
             }
 
             (CoercedAttr::None, _) => Ok(CoercedAttrWithType::None),

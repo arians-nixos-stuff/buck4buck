@@ -104,8 +104,9 @@ pub(crate) async fn with_error_handler<T>(
         Err(e) => {
             let (code, group) = e
                 .downcast_ref::<REClientError>()
-                .map(|e| (e.code, e.group))
-                .unwrap_or((TCode::UNKNOWN, TCodeReasonGroup::UNKNOWN));
+                .map_or((TCode::UNKNOWN, TCodeReasonGroup::UNKNOWN), |e| {
+                    (e.code, e.group)
+                });
 
             Err(re_error(
                 re_action,

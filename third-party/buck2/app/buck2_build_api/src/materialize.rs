@@ -202,8 +202,9 @@ async fn ensure_uploaded(
         })
         .ok()
         .flatten()
-        .map(|v| RemoteExecutorUseCase::new((*v).to_owned()))
-        .unwrap_or_else(RemoteExecutorUseCase::buck2_default);
+        .map_or_else(RemoteExecutorUseCase::buck2_default, |v| {
+            RemoteExecutorUseCase::new((*v).to_owned())
+        });
     ctx.per_transaction_data()
         .get_re_client()
         .with_use_case(re_use_case)

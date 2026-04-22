@@ -492,8 +492,7 @@ fn check_infra_error_patterns(
 
     let stderr = last_command
         .and_then(|c| c.details.as_ref())
-        .map(|d| d.cmd_stderr.as_str())
-        .unwrap_or("");
+        .map_or("", |d| d.cmd_stderr.as_str());
 
     const INFRA_PATTERNS: &[(&str, ErrorTag)] = &[(
         "transport endpoint is not connected",

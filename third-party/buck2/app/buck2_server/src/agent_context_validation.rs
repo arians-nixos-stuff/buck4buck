@@ -67,8 +67,7 @@ impl AgentContextSchema {
 
                 let required = section
                     .get("required")
-                    .map(|v| v.as_str() == "true")
-                    .unwrap_or(false);
+                    .is_some_and(|v| v.as_str() == "true");
 
                 let description = section
                     .get("description")

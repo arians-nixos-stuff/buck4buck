@@ -192,11 +192,11 @@ fn execute_lambda_inner<'v>(
             lambda,
             self_key.dupe(),
             input_artifacts_materialized,
-            &ensured_artifacts,
+            ensured_artifacts,
             &resolved_dynamic_values,
-            &artifact_fs,
+            artifact_fs,
             digest_config,
-            &env,
+            env,
         )?;
         let ctx = AnalysisContext::prepare(
             heap,

@@ -396,10 +396,10 @@ impl BuildSignals for BuildSignalSender {
         let _ignored = self.sender.send(BuildSignal::FinalMaterialization(
             FinalMaterializationSignal {
                 artifact,
+                from_group,
                 duration,
                 span_id,
                 waiting_data,
-                from_group,
             },
         ));
     }

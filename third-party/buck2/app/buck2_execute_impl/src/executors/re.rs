@@ -186,7 +186,7 @@ impl ReExecutor {
             platform,
             dependencies,
             re_gang_workers,
-            &identity,
+            identity,
             &mut manager,
             self.skip_cache_read,
             self.skip_cache_write,
@@ -227,48 +227,51 @@ impl ReExecutor {
             worker_tool_action_digest.is_some(),
         );
 
-        let response = match execute_response {
-            Ok(ExecuteResponseOrCancelled::Response(result)) => result,
-            Ok(ExecuteResponseOrCancelled::Cancelled(cancelled, queue_stats, _)) => {
-                let reason = cancelled
-                    .reason
-                    .map(|reason| match reason {
-                        CancellationReason::NotSpecified => CommandCancellationReason::NotSpecified,
-                        CancellationReason::ReQueueTimeout => {
-                            CommandCancellationReason::ReQueueTimeout
-                        }
-                    })
-                    .unwrap_or(CommandCancellationReason::NotSpecified);
-                return ControlFlow::Break(manager.cancel(
-                    CommandExecutionKind::Remote {
-                        details: remote_details,
-                        queue_time: queue_stats.cumulative_queue_duration,
-                        materialized_inputs_for_failed: None,
-                        materialized_outputs_for_failed_actions: None,
-                    },
-                    reason,
-                    CommandExecutionMetadata {
-                        queue_duration: Some(queue_stats.cumulative_queue_duration),
-                        ..CommandExecutionMetadata::empty(TimeSpan::empty_now())
-                    },
-                ));
-            }
-            Err(e) => {
-                if is_re_queue_full(&e) {
+        let response =
+            match execute_response {
+                Ok(ExecuteResponseOrCancelled::Response(result)) => result,
+                Ok(ExecuteResponseOrCancelled::Cancelled(cancelled, queue_stats, _)) => {
+                    let reason = cancelled.reason.map_or(
+                        CommandCancellationReason::NotSpecified,
+                        |reason| match reason {
+                            CancellationReason::NotSpecified => {
+                                CommandCancellationReason::NotSpecified
+                            }
+                            CancellationReason::ReQueueTimeout => {
+                                CommandCancellationReason::ReQueueTimeout
+                            }
+                        },
+                    );
                     return ControlFlow::Break(manager.cancel(
                         CommandExecutionKind::Remote {
                             details: remote_details,
-                            queue_time: Duration::ZERO,
+                            queue_time: queue_stats.cumulative_queue_duration,
                             materialized_inputs_for_failed: None,
                             materialized_outputs_for_failed_actions: None,
                         },
-                        CommandCancellationReason::ReQueueTimeout,
-                        CommandExecutionMetadata::empty(TimeSpan::empty_now()),
+                        reason,
+                        CommandExecutionMetadata {
+                            queue_duration: Some(queue_stats.cumulative_queue_duration),
+                            ..CommandExecutionMetadata::empty(TimeSpan::empty_now())
+                        },
                     ));
                 }
-                return ControlFlow::Break(manager.error("remote_call_error", e));
-            }
-        };
+                Err(e) => {
+                    if is_re_queue_full(&e) {
+                        return ControlFlow::Break(manager.cancel(
+                            CommandExecutionKind::Remote {
+                                details: remote_details,
+                                queue_time: Duration::ZERO,
+                                materialized_inputs_for_failed: None,
+                                materialized_outputs_for_failed_actions: None,
+                            },
+                            CommandCancellationReason::ReQueueTimeout,
+                            CommandExecutionMetadata::empty(TimeSpan::empty_now()),
+                        ));
+                    }
+                    return ControlFlow::Break(manager.error("remote_call_error", e));
+                }
+            };
 
         let execution_kind = response.execution_kind(remote_details);
         let manager = manager.with_execution_kind(execution_kind.clone());

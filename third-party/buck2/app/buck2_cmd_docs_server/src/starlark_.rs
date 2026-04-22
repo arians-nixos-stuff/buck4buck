@@ -145,7 +145,7 @@ pub(crate) async fn docs_starlark(
                 .map(|(path, doc)| {
                     let path = PathBuf::from(path.cell().as_str())
                         .join(path.path().path().as_forward_relative_path().as_path());
-                    let path = path.to_str().map(|s| s.to_owned()).unwrap_or("".to_owned());
+                    let path = path.to_str().map_or("".to_owned(), |s| s.to_owned());
                     if path.contains("rules.bzl") {
                         render_signature_at_bottom = true;
                     }

@@ -79,8 +79,8 @@ impl UnregisteredDownloadFileAction {
     ) -> Self {
         Self {
             checksum,
-            url,
             size_bytes,
+            url,
             vpnless_url,
             is_executable,
         }

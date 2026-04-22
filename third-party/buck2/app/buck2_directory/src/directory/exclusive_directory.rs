@@ -59,8 +59,8 @@ where
 
         let new_data = DirectoryData {
             entries,
-            fingerprint,
             size,
+            fingerprint,
             _hash,
         };
 

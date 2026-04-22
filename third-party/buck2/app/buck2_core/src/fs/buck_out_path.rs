@@ -378,7 +378,7 @@ impl BuckOutPathResolver {
         label: &ConfiguredProvidersLabel,
     ) -> buck2_error::Result<ProjectRelativePathBuf> {
         self.resolve_test_path(
-            &ForwardRelativePath::unchecked_new("test/discovery"),
+            ForwardRelativePath::unchecked_new("test/discovery"),
             label,
             None,
         )
@@ -391,7 +391,7 @@ impl BuckOutPathResolver {
         extra_path: &ForwardRelativePath,
     ) -> buck2_error::Result<ProjectRelativePathBuf> {
         self.resolve_test_path(
-            &ForwardRelativePath::unchecked_new("test/execution"),
+            ForwardRelativePath::unchecked_new("test/execution"),
             label,
             Some(extra_path),
         )

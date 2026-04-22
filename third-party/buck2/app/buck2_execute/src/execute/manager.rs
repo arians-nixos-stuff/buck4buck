@@ -100,10 +100,10 @@ impl CommandExecutionManager {
             .claim()
             .map(|claim| CommandExecutionManagerWithClaim {
                 inner: Box::new(CommandExecutionManagerWithClaimInner {
-                    claim,
                     events,
                     liveliness_observer,
                     execution_kind,
+                    claim,
                     waiting_data,
                 }),
             })

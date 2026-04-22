@@ -1368,10 +1368,10 @@ impl ChromeTraceWriter {
         track: u64,
     ) -> buck2_error::Result<()> {
         // Calculate the overall start time and duration for the parent span
-        let first_start_offset = waiting_entries
-            .first()
-            .map(|e| e.start_offset_ns.unwrap_or(0))
-            .unwrap_or_else(|| main_entry.start_offset_ns.unwrap_or(0));
+        let first_start_offset = waiting_entries.first().map_or_else(
+            || main_entry.start_offset_ns.unwrap_or(0),
+            |e| e.start_offset_ns.unwrap_or(0),
+        );
 
         let parent_start_time = self
             .first_pass

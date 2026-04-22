@@ -387,13 +387,13 @@ pub enum RemoteObject {
 
 impl RemoteObject {
     pub fn file(name: String, digest: CasDigest) -> Self {
-        Self::File(RemoteFile { name, digest })
+        Self::File(RemoteFile { digest, name })
     }
 
     pub fn dir(name: String, digest: CasDigest, children: Vec<RemoteObject>) -> Self {
         Self::Dir(RemoteDir {
-            name,
             digest,
+            name,
             children,
         })
     }

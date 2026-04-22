@@ -228,9 +228,7 @@ impl Error {
     }
 
     pub fn exit_code(&self) -> ExitCode {
-        best_tag(self.tags())
-            .map(|t| t.exit_code())
-            .unwrap_or(ExitCode::UnknownFailure)
+        best_tag(self.tags()).map_or(ExitCode::UnknownFailure, |t| t.exit_code())
     }
 
     /// All tags unsorted and with duplicates.

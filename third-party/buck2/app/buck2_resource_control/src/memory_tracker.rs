@@ -195,7 +195,7 @@ impl MemoryTracker {
 
     async fn collect_memory_reading(
         handle: &MemoryTrackerHandle,
-        mut allprocs_memory_pressure_handle: &mut MemoryPressureHandle,
+        allprocs_memory_pressure_handle: &mut MemoryPressureHandle,
     ) -> Option<MemoryReading> {
         let Ok((
             allprocs_memory_current,
@@ -209,7 +209,7 @@ impl MemoryTracker {
             handle
                 .cgroup_tree
                 .allprocs()
-                .read_memory_pressure_total(&mut allprocs_memory_pressure_handle),
+                .read_memory_pressure_total(allprocs_memory_pressure_handle),
             handle.cgroup_tree.daemon().read_memory_current(),
             handle.cgroup_tree.daemon().read_swap_current(),
         )

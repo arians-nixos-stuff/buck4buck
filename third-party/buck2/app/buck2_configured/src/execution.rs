@@ -252,7 +252,7 @@ impl ToolchainExecutionPlatformCompatibilityKey {
                 .await
                 .require_compatible()?;
 
-        let _ = errors_and_incompats.finalize().require_compatible()?;
+        errors_and_incompats.finalize().require_compatible()?;
 
         let constraints =
             ExecutionPlatformConstraints::new(node.as_ref(), &gathered_deps, &cfg_ctx)?;

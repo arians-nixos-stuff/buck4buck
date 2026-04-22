@@ -428,14 +428,8 @@ impl<'v> BxlContext<'v> {
         let root_data = this.context_type.unpack_root()?;
         let output_stream = &root_data.output_stream;
 
-        let analysis_registry = this
-            .state
-            .as_ref()
-            .state
-            .borrow_mut()
-            .take()
-            .map(Ok)
-            .unwrap_or_else(|| {
+        let analysis_registry = this.state.as_ref().state.borrow_mut().take().map_or_else(
+            || {
                 // BXL did not request actions, so we don't know execution platform.
                 // It doesn't matter what owner/platform we put here because
                 // the registry is empty, nothing will be fetched from it.
@@ -446,7 +440,9 @@ impl<'v> BxlContext<'v> {
                         .into_base_deferred_key(BxlExecutionResolution::unspecified()),
                     ExecutionPlatformResolution::unspecified(),
                 )
-            })?;
+            },
+            Ok,
+        )?;
 
         // artifacts should be bound by now as the bxl has finished running
         let state = output_stream.as_ref().take_state()?;

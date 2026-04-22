@@ -271,7 +271,7 @@ async fn log_critical_path(
                     entry.potential_improvement_duration,
                 )?,
                 non_critical_path_time: OptionalDuration::new(entry.non_critical_path_duration)?,
-                start_offset: entry.start_offset_ns.map(|v| v / 1000).unwrap_or(0),
+                start_offset: entry.start_offset_ns.map_or(0, |v| v / 1000),
             };
 
             let res: Result<(), ClientIoError> = {

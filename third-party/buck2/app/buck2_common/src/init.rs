@@ -97,8 +97,8 @@ impl HttpConfig {
             connect_timeout_ms,
             read_timeout_ms,
             write_timeout_ms,
-            max_redirects,
             http2,
+            max_redirects,
             max_concurrent_requests,
         })
     }

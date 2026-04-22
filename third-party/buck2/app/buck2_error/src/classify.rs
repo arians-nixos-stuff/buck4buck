@@ -515,7 +515,7 @@ impl ErrorLike for buck2_data::ErrorReport {
     }
 
     fn error_rank(self: &buck2_data::ErrorReport) -> u32 {
-        self.best_tag().map(tag_rank).unwrap_or(u32::MAX)
+        self.best_tag().map_or(u32::MAX, tag_rank)
     }
 
     fn category(&self) -> Tier {

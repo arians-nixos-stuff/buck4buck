@@ -196,8 +196,7 @@ impl ExitResult {
         }
         let exit_code = best_error(&errors)
             .and_then(|e| e.best_tag())
-            .map(|t| t.exit_code())
-            .unwrap_or(ExitCode::UnknownFailure);
+            .map_or(ExitCode::UnknownFailure, |t| t.exit_code());
         status_with_error_report(exit_code, errors)
     }
 

@@ -236,8 +236,7 @@ async fn systemd_check_available() -> buck2_error::Result<()> {
             let code = output
                 .status
                 .code()
-                .map(|c| c.to_string())
-                .unwrap_or("unknown".to_owned());
+                .map_or("unknown".to_owned(), |c| c.to_string());
             let stderr = String::from_utf8_lossy(&output.stderr).trim().to_owned();
             Err(SystemdNotAvailableReason::SystemdRunUserProbeFailure { code, stderr }.into())
         }

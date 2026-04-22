@@ -206,10 +206,10 @@ impl<M: MemoryMonitoring, K: CgroupKind> Cgroup<M, K> {
             read("memory.swap.max"),
         )?;
         Ok(EffectiveResourceConstraints {
-            memory_high,
             memory_max,
-            memory_swap_high,
+            memory_high,
             memory_swap_max,
+            memory_swap_high,
         })
     }
 

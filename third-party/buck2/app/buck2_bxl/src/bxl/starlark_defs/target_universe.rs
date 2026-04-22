@@ -82,9 +82,9 @@ impl<'v> StarlarkTargetUniverse<'v> {
         let target_set = target_universe
             .get_from_targets(target_set.iter().map(|i| i.label().unconfigured().dupe()));
         Ok(StarlarkTargetUniverse {
-            ctx,
             target_universe,
             target_set,
+            ctx,
         })
     }
 }

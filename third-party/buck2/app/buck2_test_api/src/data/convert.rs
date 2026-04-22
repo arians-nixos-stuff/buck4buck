@@ -992,8 +992,8 @@ impl TryFrom<buck2_test_proto::ExecutionResult2> for ExecutionResult2 {
             outputs,
             start_time,
             execution_time,
-            execution_details,
             max_memory_used_bytes,
+            execution_details,
         })
     }
 }

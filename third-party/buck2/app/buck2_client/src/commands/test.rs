@@ -297,7 +297,7 @@ fn test_executor_error(
     executor_exit_code: i32,
     test_statuses: &buck2_cli_proto::test_response::TestStatuses,
 ) -> Option<buck2_error::Error> {
-    if let Some(error) = ExecutorError::new(executor_exit_code, &test_statuses) {
+    if let Some(error) = ExecutorError::new(executor_exit_code, test_statuses) {
         let exit_code_tag = if let ExecutorError::UnexpectedExitCode(exit_code) = error {
             Some(exit_code.to_string())
         } else {
@@ -469,7 +469,7 @@ impl StreamingCommand for TestCommand {
             let mut errors = response.errors;
             // Create an error if executor returned non-zero exit code.
             // Error is for tagging and categorization only, not shown to user.
-            if let Some(error) = test_executor_error(response.executor_exit_code, &statuses) {
+            if let Some(error) = test_executor_error(response.executor_exit_code, statuses) {
                 errors.push((&error).into());
             }
             // If exit code is set in response, it should be used and not derived from command errors.

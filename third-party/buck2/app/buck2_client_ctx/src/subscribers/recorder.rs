@@ -971,15 +971,11 @@ impl InvocationRecorder {
         let mut metadata = Self::default_metadata();
         metadata.strings.extend(std::mem::take(&mut self.metadata));
 
-        let preemptible = self
-            .preemptible
-            .take()
-            .map(|p| match p {
-                PreemptibleWhen::Never => "NEVER",
-                PreemptibleWhen::Always => "ALWAYS",
-                PreemptibleWhen::OnDifferentState => "ON_DIFFERENT_STATE",
-            })
-            .unwrap_or("UNSPECIFIED");
+        let preemptible = self.preemptible.take().map_or("UNSPECIFIED", |p| match p {
+            PreemptibleWhen::Never => "NEVER",
+            PreemptibleWhen::Always => "ALWAYS",
+            PreemptibleWhen::OnDifferentState => "ON_DIFFERENT_STATE",
+        });
 
         let errors = self.finalize_errors();
 
@@ -2091,7 +2087,7 @@ impl InvocationRecorder {
         // See: https://fb.workplace.com/groups/buck2dev/permalink/3396726613948720/
         self.file_watcher_stats =
             merge_file_watcher_stats(self.file_watcher_stats.take(), file_watcher.stats.clone());
-        if let Some(duration) = duration.cloned().and_then(|x| Duration::try_from(x).ok()) {
+        if let Some(duration) = duration.copied().and_then(|x| Duration::try_from(x).ok()) {
             *self.file_watcher_duration.get_or_insert_default() += duration;
         }
         if let Some(stats) = &file_watcher.stats {

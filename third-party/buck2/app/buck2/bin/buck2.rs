@@ -123,7 +123,7 @@ fn exec_with_logging(
         Err(e) => (None, e.into()),
     };
     let res = match runtime.get_or_init() {
-        Ok(runtime) => events_ctx.finalize_events(trace_id, res, &runtime),
+        Ok(runtime) => events_ctx.finalize_events(trace_id, res, runtime),
         Err(e) => e.into(),
     };
     (shared, res)

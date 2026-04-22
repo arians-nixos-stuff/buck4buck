@@ -88,8 +88,8 @@ impl BuildListenerBackend for LongestPathGraphBackend {
             NodeData {
                 extra_data,
                 duration,
-                span_ids,
                 waiting_data,
+                span_ids,
             },
         );
 

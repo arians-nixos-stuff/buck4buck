@@ -106,7 +106,7 @@ enum DynamicActionCallableError {
 )]
 #[display(
     "DynamicActionCallable[{}]",
-    self.name.get().map(|s| s.as_str()).unwrap_or("(unbound)")
+    self.name.get().map_or("(unbound)", |s| s.as_str())
 )]
 pub struct DynamicActionsCallable<'v> {
     pub(crate) self_ty: Ty,

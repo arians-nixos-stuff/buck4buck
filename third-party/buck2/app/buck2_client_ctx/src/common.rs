@@ -538,7 +538,7 @@ impl<'a> BuckArgMatches<'a> {
     }
 
     pub fn get_representative_config_flags(&self) -> Vec<String> {
-        buck2_common::argv::get_representative_config_flags(&self.expanded_argv)
+        buck2_common::argv::get_representative_config_flags(self.expanded_argv)
     }
 
     pub fn get_representative_config_flags_by_source(&self) -> Vec<RepresentativeConfigFlag> {
@@ -549,7 +549,7 @@ impl<'a> BuckArgMatches<'a> {
         let mut args: Vec<RepresentativeConfigFlag> = Vec::new();
         let mut last_flagfile = None;
 
-        for (flag_value, source) in parse_config_flags(&self.expanded_argv) {
+        for (flag_value, source) in parse_config_flags(self.expanded_argv) {
             let flagfile = match source {
                 ExpandedArgSource::Inline => None,
                 ExpandedArgSource::Flagfile(file) => get_flagfile_for_logging(file),

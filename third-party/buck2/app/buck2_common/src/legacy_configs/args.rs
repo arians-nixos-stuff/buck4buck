@@ -75,10 +75,10 @@ fn resolve_config_flag_arg(
     };
 
     Ok(ResolvedConfigFlag {
-        cell,
         section,
         key,
         value,
+        cell,
     })
 }
 

@@ -1801,7 +1801,11 @@ mod tests {
         };
 
         // Verify we have the right output on intermediate frames
-        assert_frame_contains(&frame, "Buck UI:");
+        if cfg!(fbcode_build) {
+            assert_frame_contains(&frame, "Buck UI:");
+        } else {
+            assert_frame_contains(&frame, "Build ID:");
+        }
         assert_frame_contains(&frame, "Network:");
         assert_frame_contains(&frame, "(reSessionID-123)");
         assert_frame_contains(&frame, "Remaining");

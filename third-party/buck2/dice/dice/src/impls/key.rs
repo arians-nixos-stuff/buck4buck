@@ -351,7 +351,8 @@ where
     }
 }
 
-pub(crate) trait DiceProjectionDyn: Allocative + Display + Send + Sync + 'static {
+#[cfg_attr(feature = "pagable", pagable_typetag)]
+pub trait DiceProjectionDyn: Allocative + Display + Send + Sync + PagableTagged + 'static {
     fn compute(
         &self,
         derive_from: &MaybeValidDiceValue,
@@ -584,6 +585,7 @@ mod tests {
     use crate::api::projection::ProjectionKey;
     use crate::impls::key::DiceKey;
     use crate::impls::key::DiceKeyErased;
+    use crate::impls::key::DiceProjectionDyn;
 
     #[test]
     fn downcast_key_does_not_increase_refs() {
@@ -624,6 +626,7 @@ mod tests {
         assert_eq!(Arc::strong_count(&downcast), 1);
 
         #[derive(Allocative, Debug, Display, Clone, Dupe, Eq, PartialEq, Hash, Pagable)]
+        #[pagable_typetag(DiceProjectionDyn)]
         struct TestProj;
 
         impl ProjectionKey for TestProj {

@@ -24,6 +24,7 @@ use dice::DiceComputations;
 use dice::DiceData;
 use dice::DiceKeyDyn;
 use dice::DiceProjectionComputations;
+use dice::DiceProjectionDyn;
 use dice::InjectedKey;
 use dice::Key;
 use dice::NoValueSerialize;
@@ -189,6 +190,7 @@ impl Key for ConfigKey {
     Pagable
 )]
 #[display("{}", key)]
+#[pagable_typetag(DiceProjectionDyn)]
 struct ConfigPropertyKey {
     key: String,
 }
@@ -338,6 +340,7 @@ async fn projection_sync_and_then_recompute_incremental_reuses_key() -> anyhow::
     let dice = dice.build(DetectCycles::Enabled);
 
     #[derive(Allocative, Clone, Debug, Display, Pagable)]
+    #[pagable_typetag(DiceProjectionDyn)]
     struct ProjectionEqualKey;
 
     #[async_trait]

@@ -22,6 +22,7 @@ use dice::Dice;
 use dice::DiceComputations;
 use dice::DiceKeyDyn;
 use dice::DiceProjectionComputations;
+use dice::DiceProjectionDyn;
 use dice::Key;
 use dice::ProjectionKey;
 use dice_futures::cancellation::CancellationContext;
@@ -57,6 +58,7 @@ impl Key for BaseK {
 async fn concurrent_identical_requests_are_reused() -> anyhow::Result<()> {
     #[derive(Allocative, Clone, Debug, Display, Pagable)]
     #[display("{:?}", self)]
+    #[pagable_typetag(DiceProjectionDyn)]
     struct ComputeOnce(
         #[allocative(skip)]
         #[pagable(discard = "(|| unimplemented!())()")]

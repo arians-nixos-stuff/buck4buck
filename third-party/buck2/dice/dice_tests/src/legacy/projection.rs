@@ -21,6 +21,7 @@ use dice::DiceComputations;
 use dice::DiceData;
 use dice::DiceKeyDyn;
 use dice::DiceProjectionComputations;
+use dice::DiceProjectionDyn;
 use dice::Key;
 use dice::ProjectionKey;
 use dice::UserComputationData;
@@ -180,6 +181,7 @@ impl Key for ConfigKey {
     Pagable
 )]
 #[display("{}", key)]
+#[pagable_typetag(DiceProjectionDyn)]
 struct ConfigPropertyKey {
     key: String,
 }

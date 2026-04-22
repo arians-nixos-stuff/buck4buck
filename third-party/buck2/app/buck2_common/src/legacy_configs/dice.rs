@@ -247,6 +247,7 @@ impl Key for LegacyBuckConfigForCellKey {
 /// projection key to extract just the error from the cell computation, and compute that when
 /// constructing the `OpaqueLegacyBuckConfigOnDice`.
 #[derive(Debug, Display, Hash, Eq, PartialEq, Clone, Allocative, Pagable)]
+#[pagable_typetag(dice::DiceProjectionDyn)]
 struct LegacyBuckConfigErrorKey();
 
 impl ProjectionKey for LegacyBuckConfigErrorKey {
@@ -294,6 +295,7 @@ impl ProjectionKey for LegacyBuckConfigErrorKey {
 
 #[derive(Debug, Display, Hash, Eq, PartialEq, Clone, Allocative, Pagable)]
 #[display("{}.{}", section, property)]
+#[pagable_typetag(dice::DiceProjectionDyn)]
 struct LegacyBuckConfigPropertyProjectionKey {
     section: String,
     property: String,

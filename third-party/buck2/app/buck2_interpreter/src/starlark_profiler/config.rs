@@ -203,9 +203,11 @@ impl Key for StarlarkProfilerConfigurationResolvedKey {
     PartialEq,
     Hash,
     Allocative,
-    RefCast
+    RefCast,
+    PagablePanic
 )]
 #[repr(transparent)]
+#[pagable_typetag(dice::DiceProjectionDyn)]
 struct StarlarkProfileModeForKind(StarlarkEvalKind);
 
 impl ProjectionKey for StarlarkProfileModeForKind {

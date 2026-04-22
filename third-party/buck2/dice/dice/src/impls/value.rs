@@ -48,7 +48,7 @@ impl DiceValidValue {
 
 /// Type erased value that may be transient, or whose dependencies are transient
 #[derive(Allocative, Clone, Dupe)]
-pub(crate) struct MaybeValidDiceValue {
+pub struct MaybeValidDiceValue {
     value: std::sync::Arc<dyn DiceValueDyn>,
     validity: DiceValidity,
 }

@@ -57,7 +57,7 @@ use crate::impls::events::DiceEventDispatcher;
 use crate::impls::key::CowDiceKeyHashed;
 use crate::impls::key::DiceKey;
 use crate::impls::key::ParentKey;
-use crate::impls::opaque::OpaqueValueModern;
+use crate::impls::opaque::OpaqueValue;
 use crate::impls::task::PreviouslyCancelledTask;
 use crate::impls::task::promise::DicePromise;
 use crate::impls::task::sync_dice_task;
@@ -178,7 +178,7 @@ impl ModernComputeCtx<'_> {
     pub(crate) fn compute_opaque<'a, K>(
         &'a self,
         key: &K,
-    ) -> impl Future<Output = DiceResult<OpaqueValueModern<K>>> + use<'a, K>
+    ) -> impl Future<Output = DiceResult<OpaqueValue<K>>> + use<'a, K>
     where
         K: Key,
     {
@@ -188,14 +188,14 @@ impl ModernComputeCtx<'_> {
     fn compute_opaque_impl<K>(
         ctx_data: &CoreCtx,
         key: &K,
-    ) -> impl Future<Output = DiceResult<OpaqueValueModern<K>>> + use<K>
+    ) -> impl Future<Output = DiceResult<OpaqueValue<K>>> + use<K>
     where
         K: Key,
     {
         ctx_data.compute_opaque(key).map(move |cancellable_result| {
             let cancellable = cancellable_result.map(move |(dice_key, dice_value)| {
                 let (value, invalidation_paths) = dice_value.into_parts();
-                OpaqueValueModern::new(dice_key, value, invalidation_paths)
+                OpaqueValue::new(dice_key, value, invalidation_paths)
             });
 
             cancellable.map_err(DiceError::cancelled)
@@ -342,15 +342,12 @@ impl ModernComputeCtx<'_> {
         })
     }
 
-    pub(crate) fn opaque_into_value<K: Key>(&mut self, opaque: OpaqueValueModern<K>) -> K::Value {
+    pub(crate) fn opaque_into_value<K: Key>(&mut self, opaque: OpaqueValue<K>) -> K::Value {
         Self::opaque_into_value_impl(self.unpack().1, opaque)
     }
 
-    fn opaque_into_value_impl<K: Key>(
-        deps: DepsTrackerHolder,
-        opaque: OpaqueValueModern<K>,
-    ) -> K::Value {
-        let OpaqueValueModern {
+    fn opaque_into_value_impl<K: Key>(deps: DepsTrackerHolder, opaque: OpaqueValue<K>) -> K::Value {
+        let OpaqueValue {
             derive_from_key,
             derive_from,
             invalidation_paths,
@@ -635,7 +632,7 @@ impl ModernComputeCtx<'_> {
     /// Compute "projection" based on deriving value
     pub(crate) fn projection<K: Key, P: ProjectionKey<DeriveFromKey = K>>(
         &mut self,
-        derive_from: &OpaqueValueModern<K>,
+        derive_from: &OpaqueValue<K>,
         key: &P,
     ) -> DiceResult<P::Value> {
         let (ctx_data, dep_trackers) = self.unpack();
@@ -711,7 +708,7 @@ impl CoreCtx {
     fn project<B: Key, K: ProjectionKey<DeriveFromKey = B>>(
         &self,
         key: &K,
-        base: &OpaqueValueModern<B>,
+        base: &OpaqueValue<B>,
         dep_trackers: DepsTrackerHolder,
     ) -> DiceResult<K::Value> {
         let dice_key = self

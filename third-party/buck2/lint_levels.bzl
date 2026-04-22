@@ -93,8 +93,9 @@ CLIPPY_DENY = [
 
 # buildifier: keep sorted
 CLIPPY_AUTOFIX = [
-    # Only add machine-fixable warnings in this list, or we'll see them all
-    # the time in CI.
+    # Lints that are hypothetically candidates for autofixing. We don't have any infrastructure to
+    # actually do the autofixing though, so this is basically just a wishlist. In practice, treated
+    # like allowed lints
     "clippy::cloned_instead_of_copied",
     "clippy::inconsistent_struct_constructor",
     "clippy::inefficient_to_string",

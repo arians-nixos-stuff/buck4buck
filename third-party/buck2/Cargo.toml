@@ -378,6 +378,7 @@ pagable_derive = { path = "pagable_derive" }
 provider = { path = "shed/provider" }
 remote_execution = { path = "remote_execution/oss/re_grpc" }
 setsketch = { path = "shed/setsketch" }
+sled = "0.34"
 starlark = { version = "0.13.0", path = "starlark-rust/starlark" }
 starlark_lsp = { version = "0.13.0", path = "starlark-rust/starlark_lsp" }
 starlark_map = { version = "0.13.0", path = "starlark-rust/starlark_map" }

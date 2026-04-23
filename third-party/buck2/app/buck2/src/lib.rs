@@ -175,7 +175,7 @@ fn help() -> &'static str {
 #[clap(
     name = "buck2",
     about(Some(help())),
-    version(BuckVersion::get_version()),
+    version(BuckVersion::get_version_for_clap()),
     styles = cli_style::get_styles(),
 )]
 pub(crate) struct Opt {

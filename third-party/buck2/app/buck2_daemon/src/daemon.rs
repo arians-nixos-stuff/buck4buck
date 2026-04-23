@@ -264,7 +264,7 @@ impl DaemonCommand {
             let process_info = DaemonProcessInfo {
                 pid: pid as i64,
                 endpoint: endpoint.to_string(),
-                version: BuckVersion::get().unique_id().to_owned(),
+                version: BuckVersion::get()?.unique_id().to_owned(),
                 auth_token,
             };
 
@@ -287,7 +287,7 @@ impl DaemonCommand {
             let process_info = DaemonProcessInfo {
                 pid: process::id() as i64,
                 endpoint: endpoint.to_string(),
-                version: BuckVersion::get().unique_id().to_owned(),
+                version: BuckVersion::get()?.unique_id().to_owned(),
                 auth_token,
             };
 
@@ -300,7 +300,7 @@ impl DaemonCommand {
         set_daemon_id_for_panics(daemon_id.dupe());
 
         tracing::info!("Starting Buck2 daemon");
-        tracing::info!("Version: {}", BuckVersion::get_version());
+        tracing::info!("Version: {}", BuckVersion::get_version()?);
         tracing::info!("PID: {}", process::id());
         tracing::info!("ID: {}", daemon_id);
         tracing::info!("Endpoint: {}", endpoint);

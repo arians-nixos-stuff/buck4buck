@@ -131,7 +131,7 @@ impl DaemonConstraintsRequest {
         desired_trace_io_state: DesiredTraceIoState,
     ) -> buck2_error::Result<Self> {
         Ok(Self {
-            version: daemon_constraints::version(),
+            version: daemon_constraints::version()?,
             user_version: daemon_constraints::user_version()?,
             desired_trace_io_state,
             nested_invocation_daemon_uuid: get_possibly_nested_invocation_daemon_uuid(),

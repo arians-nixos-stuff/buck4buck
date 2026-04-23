@@ -99,6 +99,8 @@ enum ErrorTag {
   BUCKD_INFO_MISSING = 514;
   BUCKD_INFO_PARSE_ERROR = 515;
   DAEMON_DISCONNECT = 516;
+  // Could not determine the BuckVersion
+  BUCK_VERSION_ERROR = 518;
   // Too large gRPC message.
   GRPC_RESPONSE_MESSAGE_TOO_LARGE = 6;
   // `visibility`, `within_view`.

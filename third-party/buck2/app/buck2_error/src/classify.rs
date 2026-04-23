@@ -396,6 +396,8 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::Tier0 => rank!(tier0).hidden(),
         // Daemon disconnected with nothing in stderr, likely SIGKILLed.
         ErrorTag::DaemonDisconnect => rank!(environment),
+        // Could not determine the BuckVersion
+        ErrorTag::BuckVersionError => rank!(tier0),
 
         // Input errors
         ErrorTag::ClapMatch => rank!(input),

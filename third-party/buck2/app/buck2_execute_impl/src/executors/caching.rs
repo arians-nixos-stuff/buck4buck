@@ -28,7 +28,7 @@ use buck2_execute::directory::directory_to_re_tree;
 use buck2_execute::execute::action_digest_and_blobs::ActionDigestAndBlobs;
 use buck2_execute::execute::blobs::ActionBlobs;
 use buck2_execute::execute::cache_uploader::CacheUploadInfo;
-use buck2_execute::execute::cache_uploader::CacheUploadResult;
+use buck2_execute::execute::cache_uploader::CacheUploadResults;
 use buck2_execute::execute::cache_uploader::IntoRemoteDepFile;
 use buck2_execute::execute::cache_uploader::UploadCache;
 use buck2_execute::execute::result::CommandExecutionResult;
@@ -570,7 +570,7 @@ impl UploadCache for CacheUploader {
         re_result: Option<TActionResult2>,
         dep_file_bundle: Option<&mut dyn IntoRemoteDepFile>,
         action_digest_and_blobs: &ActionDigestAndBlobs,
-    ) -> buck2_error::Result<CacheUploadResult> {
+    ) -> buck2_error::Result<CacheUploadResults> {
         let error_on_cache_upload = error_on_cache_upload().buck_error_context("cache_upload")?;
 
         let (did_cache_upload, action_result) = if res.was_locally_executed() {
@@ -640,7 +640,7 @@ impl UploadCache for CacheUploader {
             (false, None)
         };
 
-        Ok(CacheUploadResult {
+        Ok(CacheUploadResults {
             did_cache_upload,
             did_dep_file_cache_upload,
             dep_file_cache_upload_key,

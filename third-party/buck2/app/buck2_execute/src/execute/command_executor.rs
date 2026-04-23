@@ -31,7 +31,7 @@ use remote_execution as RE;
 use remote_execution::TActionResult2;
 use sorted_vector_map::SortedVectorMap;
 
-use super::cache_uploader::CacheUploadResult;
+use super::cache_uploader::CacheUploadResults;
 use crate::artifact::fs::ExecutorFs;
 use crate::digest::CasDigestToReExt;
 use crate::digest_config::DigestConfig;
@@ -152,7 +152,7 @@ impl CommandExecutor {
         re_result: Option<TActionResult2>,
         dep_file_bundle: Option<&mut dyn IntoRemoteDepFile>,
         action_digest_and_blobs: &ActionDigestAndBlobs,
-    ) -> buck2_error::Result<CacheUploadResult> {
+    ) -> buck2_error::Result<CacheUploadResults> {
         self.0
             .cache_uploader
             .upload(

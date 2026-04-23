@@ -46,7 +46,7 @@ pub trait IntoRemoteDepFile: Send {
     ) -> buck2_error::Result<Option<RemoteDepFile>>;
 }
 
-pub struct CacheUploadResult {
+pub struct CacheUploadResults {
     pub did_cache_upload: bool,
     pub did_dep_file_cache_upload: bool,
     pub dep_file_cache_upload_key: Option<DepFileDigest>,
@@ -74,7 +74,7 @@ pub trait UploadCache: Send + Sync {
         re_result: Option<TActionResult2>,
         dep_file_bundle: Option<&mut dyn IntoRemoteDepFile>,
         action_digest_and_blobs: &ActionDigestAndBlobs,
-    ) -> buck2_error::Result<CacheUploadResult>;
+    ) -> buck2_error::Result<CacheUploadResults>;
 }
 
 /// A no-op cache uploader for when cache uploading is disabled
@@ -89,8 +89,8 @@ impl UploadCache for NoOpCacheUploader {
         _re_result: Option<TActionResult2>,
         _dep_file_bundle: Option<&mut dyn IntoRemoteDepFile>,
         _action_digest_and_blobs: &ActionDigestAndBlobs,
-    ) -> buck2_error::Result<CacheUploadResult> {
-        Ok(CacheUploadResult {
+    ) -> buck2_error::Result<CacheUploadResults> {
+        Ok(CacheUploadResults {
             did_cache_upload: false,
             did_dep_file_cache_upload: false,
             dep_file_cache_upload_key: None,

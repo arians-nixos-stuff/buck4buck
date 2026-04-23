@@ -255,6 +255,19 @@ impl<'a> BuckTestOrchestrator<'a> {
         Ok(())
     }
 
+    /// Exempt static listing: its enumeration tool (gtest-list-tests, coral,
+    /// ...) is a DotSlash stub that can't resolve under network isolation.
+    /// Dynamic listing runs the test binary itself, so keep that isolated.
+    fn requested_network_access(
+        stage: &TestStage,
+        test_info: &FrozenExternalRunnerTestInfo,
+    ) -> Option<NetworkAccess> {
+        match stage {
+            TestStage::Listing { .. } if test_info.labels().any(|l| l == "static-listing") => None,
+            _ => test_info.network_access(),
+        }
+    }
+
     async fn execute2(
         &self,
         stage: TestStage,
@@ -397,7 +410,7 @@ impl<'a> BuckTestOrchestrator<'a> {
         let test_info = Self::get_test_info(dice, &test_target).await?;
         let effective_test_execution_caching =
             test_info.supports_test_execution_caching() && !disable_test_execution_caching;
-        let network_access = test_info.network_access();
+        let network_access = Self::requested_network_access(stage.as_ref(), &test_info);
         let test_executor = Self::get_test_executor(
             dice,
             &test_target,
@@ -802,7 +815,7 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
         let fs = self.dice.clone().get_artifact_fs().await?;
 
         let test_info = Self::get_test_info(self.dice.dupe().deref_mut(), &test_target).await?;
-        let network_access = test_info.network_access();
+        let network_access = Self::requested_network_access(&stage, &test_info);
 
         // In contrast from actual test execution we do not check if local execution is possible.
         // We leave that decision to actual local execution runner that requests local execution preparation.

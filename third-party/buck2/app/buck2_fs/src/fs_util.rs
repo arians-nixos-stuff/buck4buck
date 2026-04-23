@@ -491,13 +491,15 @@ pub fn remove_all<P: AsRef<AbsPath>>(path: P) -> Result<(), IoError> {
     } else {
         remove_file(&path)
     };
-    if r.is_err()
-        && symlink_metadata_if_exists(&path)
-            .map_err(IoError::internal)?
-            .is_none()
-    {
-        // Other process removed it, our goal is achieved.
-        return Ok(());
+    if let Err(e) = &r {
+        // If the remove itself returned NotFound, something else removed the path between
+        // our metadata check and our remove call. Either way the prior content is gone,
+        // which is what we came here to achieve — so report success. Do NOT re-check the
+        // filesystem after the fact: a concurrent writer may have recreated content there
+        // by the time of the re-check, and that content isn't ours to delete.
+        if e.io_error_kind() == Some(io::ErrorKind::NotFound) {
+            return Ok(());
+        }
     }
     r
 }

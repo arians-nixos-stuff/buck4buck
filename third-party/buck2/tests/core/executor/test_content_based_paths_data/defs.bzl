@@ -6,6 +6,66 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+# Regression fixture for a writer-vs-writer race on shared content-based
+# paths, minimized from prelude/rust/build.bzl
+# _create_transitive_dependency_symlinks.
+#
+# When a target that uses has_content_based_path = True for a write_json
+# output is analyzed under many configurations, every analysis independently
+# submits its own declare_write. Each call runs cleanup_path -> write_file
+# via the immediate-write path, and the cleanup operations race on the
+# shared __<target>__/<content_hash>/ on-disk path. The losing writer's
+# remove then returns ENOENT, which caused the OSS bootstrap
+# "No such file or directory" failures that motivated D101857169.
+#
+# The fixture defines a single shared producer target and a consumer rule
+# that exercises the output; TARGETS.fixture instantiates many consumers
+# under different platforms so the producer is re-analyzed once per
+# configuration.
+
+def _rust_pattern_producer_impl(ctx):
+    # Stable content that does NOT depend on configuration. A per-test-run
+    # seed (via buckconfig) invalidates the RE cache between runs, but
+    # every configuration within one run produces the same JSON, so every
+    # analysis resolves to the same content-hash path.
+    out = ctx.actions.write_json(
+        ctx.actions.declare_output("artifacts.json", has_content_based_path = True),
+        {"seed": read_config("cbp_race", "seed", "0")},
+        pretty = True,
+    )
+    return [DefaultInfo(default_output = out)]
+
+rust_pattern_producer = rule(
+    impl = _rust_pattern_producer_impl,
+    attrs = {},
+)
+
+def _rust_pattern_consumer_impl(ctx):
+    out = ctx.actions.declare_output("out.txt")
+    producer_out = ctx.attrs.producer[DefaultInfo].default_outputs[0]
+
+    # Mirror the rust `deps` action: cmd_args with format="--artifacts={}"
+    # so the consumer references the producer's on-disk content-based path.
+    ctx.actions.run(
+        cmd_args(
+            "fbpython",
+            "-c",
+            "import argparse\np = argparse.ArgumentParser()\np.add_argument('--artifacts', type=argparse.FileType('r'), required=True)\np.add_argument('--out', required=True)\na = p.parse_args()\nopen(a.out, 'w').write(a.artifacts.read())",
+            cmd_args(producer_out, format = "--artifacts={}"),
+            cmd_args(out.as_output(), format = "--out={}"),
+        ),
+        category = "consume_cbp",
+        local_only = True,
+    )
+    return [DefaultInfo(default_output = out)]
+
+rust_pattern_consumer = rule(
+    impl = _rust_pattern_consumer_impl,
+    attrs = {
+        "producer": attrs.dep(),
+    },
+)
+
 def project(f: Artifact):
     return f
 

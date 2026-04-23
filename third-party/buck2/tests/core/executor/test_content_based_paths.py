@@ -11,8 +11,10 @@
 
 import json
 import subprocess
+import time
 from pathlib import Path
 
+import pytest
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.api.buck_result import ExitCodeV2
 from buck2.tests.e2e_util.asserts import expect_failure
@@ -673,3 +675,43 @@ async def test_failing_run_with_run_info(buck: Buck) -> None:
         "Tried to resolve a content-based path out without providing the content hash!"
         not in failure.stderr
     )
+
+
+@buck_test()
+@pytest.mark.skip(
+    reason="Reliably reproduces a buck2 writer-vs-writer race on shared "
+    "content-based paths (see test docstring). Skipped until the "
+    "underlying race is fixed so we can land the regression scaffold "
+    "without failing CI.",
+)
+async def test_shared_content_hash_race(buck: Buck) -> None:
+    """Regression test for a writer-vs-writer race on shared content-based paths.
+
+    Mirrors the pattern from prelude/rust/build.bzl
+    _create_transitive_dependency_symlinks: a write_json output with
+    has_content_based_path = True whose content does not depend on
+    configuration. A single producer target is analyzed under N different
+    platforms (via N consumer targets with distinct default_target_platform),
+    so every analysis's write_json resolves to the SAME
+    __<target>__/<content_hash>/artifacts.json on-disk path. Concurrently
+    running those N writes exercises the cleanup_path -> write_file
+    sequence in immediate::write_to_disk; two writers race on the same
+    path and one's remove returns ENOENT, failing the build with:
+        Action failed: ... (write_json artifacts.json)
+        remove_file(.../<target>/<content_hash>/artifacts.json):
+        No such file or directory (os error 2)
+    """
+    N = 200
+    targets = [f"root//:rust_pattern_consumer_{i}" for i in range(N)]
+    # Embed a distinct seed per iteration via buckconfig so every iteration
+    # writes different JSON content and therefore misses the RE action cache
+    # and the local materializer cache. All N consumers within an iteration
+    # share the same seed, so they share the same content-hash path.
+    base_seed = int(time.time() * 1000)
+    for i in range(3):
+        await buck.build(
+            "-c",
+            f"cbp_race.seed={base_seed + i}",
+            *targets,
+        )
+        await buck.clean()

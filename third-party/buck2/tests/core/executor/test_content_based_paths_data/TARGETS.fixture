@@ -17,6 +17,8 @@ load(
     "resolve_promise_artifact",
     "run_with_anon_non_cbp_dep",
     "run_with_content_based_path",
+    "rust_pattern_consumer",
+    "rust_pattern_producer",
     "sets_inconsistent_params",
     "slow_running_local_action_with_content_based_path",
     "symlink",
@@ -224,3 +226,48 @@ uses_exec_dep(
     name = "uses_exec_dep",
     exec_dep = ":non_content_based_exec_dep",
 )
+
+# Regression fixture for a writer-vs-writer race on shared content-based
+# paths. A single rust_pattern_producer target is depended on by N
+# consumers, each bound to a DIFFERENT platform. Every consumer re-analyzes
+# the producer under its own configuration, but the producer's content
+# doesn't depend on configuration, so every analysis's write_json resolves
+# to the SAME __rust_pattern_shared_producer__/<content_hash>/artifacts.json
+# on-disk path. Building all consumers concurrently runs N independent
+# cleanup_path -> write_file cycles on that shared path; before the fix
+# they race and one writer's remove returns ENOENT.
+_N = 200
+
+[
+    constraint_setting(name = "cfg_setting_{}".format(i))
+    for i in range(_N)
+]
+
+[
+    constraint_value(
+        name = "cfg_value_{}".format(i),
+        constraint_setting = ":cfg_setting_{}".format(i),
+    )
+    for i in range(_N)
+]
+
+[
+    platform(
+        name = "cbp_race_platform_{}".format(i),
+        constraint_values = [":cfg_value_{}".format(i)],
+    )
+    for i in range(_N)
+]
+
+rust_pattern_producer(
+    name = "rust_pattern_shared_producer",
+)
+
+[
+    rust_pattern_consumer(
+        name = "rust_pattern_consumer_{}".format(i),
+        producer = ":rust_pattern_shared_producer",
+        default_target_platform = ":cbp_race_platform_{}".format(i),
+    )
+    for i in range(_N)
+]

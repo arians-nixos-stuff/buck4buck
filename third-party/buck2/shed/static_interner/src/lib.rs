@@ -108,7 +108,7 @@ impl<
     }
 
     fn serialize_inner(&self, ser: &mut dyn PagableSerializer) -> pagable::Result<()> {
-        T::pagable_serialize(&self, ser)
+        T::pagable_serialize(self, ser)
     }
 
     fn deserialize_inner<'de, D: PagableDeserializer<'de> + ?Sized>(

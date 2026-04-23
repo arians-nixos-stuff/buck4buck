@@ -91,16 +91,13 @@ async fn main() -> anyhow::Result<()> {
         let _raw = RawMode::enable()?;
         let mut renderer = SuperConsole::new().unwrap();
         let mut stdin = Stdin::new(8192);
-        let start_level = args
-            .level
-            .map(|l| {
-                if l == 0 {
-                    eprintln!("Level numbers are 1-indexed");
-                    std::process::exit(1);
-                }
-                l - 1
-            })
-            .unwrap_or(0);
+        let start_level = args.level.map_or(0, |l| {
+            if l == 0 {
+                eprintln!("Level numbers are 1-indexed");
+                std::process::exit(1);
+            }
+            l - 1
+        });
         let mut game = if let Some(ref path) = args.levels_file {
             let levels = load_external_levels(path);
             Game::new_from_levels(levels, start_level)

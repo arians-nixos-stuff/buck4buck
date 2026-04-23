@@ -860,8 +860,7 @@ impl super::Game for Game {
         let label = SIZES
             .iter()
             .find(|(w, h, m, _)| *w == self.width && *h == self.height && *m == self.mine_count)
-            .map(|(_, _, _, l)| *l)
-            .unwrap_or("Custom");
+            .map_or("Custom", |(_, _, _, l)| *l);
         vec![super::Score {
             category: label.to_owned(),
             value: self.elapsed_secs as u64,

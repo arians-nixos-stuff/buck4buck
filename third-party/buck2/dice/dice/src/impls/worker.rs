@@ -429,7 +429,7 @@ async fn check_dependency(
         .compute_opaque(
             dep,
             parent_key,
-            &eval,
+            eval,
             cycles.subrequest(dep, &eval.dice.key_index),
         )
         .await?;

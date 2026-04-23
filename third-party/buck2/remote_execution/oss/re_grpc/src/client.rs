@@ -467,7 +467,7 @@ impl REClientBuilder {
             cache_cap
                 .supported_compressors
                 .iter()
-                .cloned()
+                .copied()
                 .filter_map(Compressor::from_grpc)
                 .collect()
         } else {
@@ -981,7 +981,7 @@ impl REClient {
             {
                 let mut find_missing_cache = self.find_missing_cache.lock().unwrap();
                 for digest in digest_iter.by_ref() {
-                    if let Some(rs) = find_missing_cache.get(&digest) {
+                    if let Some(rs) = find_missing_cache.get(digest) {
                         // We have our final result already cached
                         remote_results.insert(digest.clone(), rs);
                     } else {
@@ -1296,7 +1296,7 @@ where
     }
 
     let bystream_fut = |digest: TDigest| async move {
-        let resource_name = resource_name(&instance_name, bystream_compressor, &digest);
+        let resource_name = resource_name(instance_name, bystream_compressor, &digest);
 
         bystream_fut(ReadRequest {
             resource_name: resource_name.clone(),
@@ -1573,7 +1573,7 @@ where
         let data = blob.blob;
         let client_uuid = uuid::Uuid::new_v4().to_string();
         let resource_name = resource_name(
-            &instance_name,
+            instance_name,
             &client_uuid,
             bystream_compressor,
             &blob.digest,
@@ -1597,7 +1597,7 @@ where
         }
         let client_uuid = uuid::Uuid::new_v4().to_string();
         let resource_name = resource_name(
-            &instance_name,
+            instance_name,
             &client_uuid,
             bystream_compressor,
             &file.digest,

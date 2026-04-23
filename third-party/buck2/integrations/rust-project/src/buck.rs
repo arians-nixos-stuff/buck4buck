@@ -99,7 +99,7 @@ pub(crate) fn to_project_json(
 
     let mut crates: Vec<Crate> = Vec::with_capacity(targets_vec.len());
     for target in &targets_vec {
-        let info = target_index.get(&target).unwrap();
+        let info = target_index.get(target).unwrap();
 
         let dep_targets = resolve_aliases(&info.deps, &aliases, &proc_macros);
         let deps = as_deps(&dep_targets, info, &targets_to_ids, &target_index);
@@ -675,7 +675,7 @@ impl Buck {
             alias_destinations.sort();
 
             let new_aliases =
-                match self.query_aliased_targets(&alias_destinations, &universe_targets) {
+                match self.query_aliased_targets(&alias_destinations, universe_targets) {
                     Ok(new_aliases) => new_aliases,
                     Err(_) => {
                         warn!("buck cquery failed, falling back to best-effort uquery");

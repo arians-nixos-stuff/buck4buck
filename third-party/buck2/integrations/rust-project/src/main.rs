@@ -366,7 +366,7 @@ fn main() -> Result<(), anyhow::Error> {
 
             cli::Check::new(buck, use_clippy, saved_file.clone())
                 .run()
-                .inspect_err(|e| crate::scuba::log_check_error(&e, &saved_file, use_clippy))
+                .inspect_err(|e| crate::scuba::log_check_error(e, &saved_file, use_clippy))
         }
     }
 }
@@ -397,7 +397,7 @@ fn fb_build_info_from_elf() -> Result<String, anyhow::Error> {
     let (section_bytes, _) = elf_file.section_data(&elf_section)?;
     let section_cstr = std::ffi::CStr::from_bytes_with_nul(section_bytes)?;
 
-    let build_info: serde_json::Value = serde_json::from_str(&section_cstr.to_str()?)?;
+    let build_info: serde_json::Value = serde_json::from_str(section_cstr.to_str()?)?;
     let revision = build_info["revision"].as_str().unwrap_or("(unknown)");
     let build_time = build_info["time"].as_str().unwrap_or("(unknown)");
 

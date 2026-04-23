@@ -74,7 +74,7 @@ impl GraphIntrospectable {
         _keys: &'a mut HashMap<AnyKey, KeyID>,
     ) -> Box<dyn Iterator<Item = SerializedGraphNodeForKey> + 'a> {
         Box::new(self.graph.nodes.iter().map(|(key, node)| {
-            let any_k = self.key_map.get(&key).expect("key should be present");
+            let any_k = self.key_map.get(key).expect("key should be present");
             SerializedGraphNodeForKey {
                 id: KeyID(node.node_id.0),
                 key: any_k.to_string(),

@@ -102,7 +102,7 @@ def _write_json_rule_impl(ctx: AnalysisContext) -> list[Provider]:
     want = ctx.label.name
     for name, input, output in tests:
         if name == want:
-            input_file = ctx.actions.write_json("input", input(ctx))
+            input_file = ctx.actions.write_json("input", input(ctx), has_content_based_path = False)
             output_file = ctx.actions.declare_output("output", has_content_based_path = False)
 
             def f(ctx: AnalysisContext, artifacts, outputs):
@@ -127,17 +127,17 @@ def _write_json_pretty_rule_impl(ctx: AnalysisContext) -> list[Provider]:
     # @unsorted-dict-items
     tests = {
         "default": (
-            ctx.actions.write_json("default_input", value),
+            ctx.actions.write_json("default_input", value, has_content_based_path = False),
             ctx.actions.declare_output("default_output", has_content_based_path = False),
             '{"key1":[1],"key2":[true,false]}',
         ),
         "compact": (
-            ctx.actions.write_json("compact_input", value, pretty = False),
+            ctx.actions.write_json("compact_input", value, pretty = False, has_content_based_path = False),
             ctx.actions.declare_output("compact_output", has_content_based_path = False),
             '{"key1":[1],"key2":[true,false]}',
         ),
         "pretty": (
-            ctx.actions.write_json("pretty_input", value, pretty = True),
+            ctx.actions.write_json("pretty_input", value, pretty = True, has_content_based_path = False),
             ctx.actions.declare_output("pretty_output", has_content_based_path = False),
             '{\n  "key1": [\n    1\n  ],\n  "key2": [\n    true,\n    false\n  ]\n}\n',
         ),
@@ -166,7 +166,7 @@ write_json_pretty_rule = rule(impl = _write_json_pretty_rule_impl, attrs = {})
 
 def _write_json_with_inputs_rule(ctx: AnalysisContext) -> list[Provider]:
     input = ctx.actions.write("input", ctx.attrs.content)
-    as_json = ctx.actions.write_json("json", input, with_inputs = True)
+    as_json = ctx.actions.write_json("json", input, with_inputs = True, has_content_based_path = False)
 
     output = ctx.actions.declare_output("output", has_content_based_path = False)
 
@@ -196,6 +196,7 @@ def _write_json_absolute_rule(ctx: AnalysisContext) -> list[Provider]:
         "out.json",
         [src, cmd_args(src, delimiter = "")],
         absolute = True,
+        has_content_based_path = False,
     )
 
     return [DefaultInfo(out)]

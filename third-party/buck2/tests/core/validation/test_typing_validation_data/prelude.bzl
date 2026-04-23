@@ -26,7 +26,7 @@ def _impl(ctx) -> list[Provider]:
                 "status": status,
             },
             "version": 1,
-        }, pretty = True)
+        }, pretty = True, has_content_based_path = False)
 
         return [
             DefaultInfo(),

@@ -9,7 +9,7 @@
 def _broker_impl(ctx):
     json = ctx.actions.write_json("resources.json", {
         "resources": [{"my_alias": "42"}],
-    })
+    }, has_content_based_path = False)
     return [
         DefaultInfo(),
         LocalResourceInfo(

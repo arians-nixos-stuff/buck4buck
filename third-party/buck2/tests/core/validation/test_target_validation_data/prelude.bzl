@@ -13,7 +13,7 @@ def _impl(ctx) -> list[Provider]:
             "status": "failure" if ctx.attrs.fail else "success",
         },
         "version": 1,
-    }, pretty = True)
+    }, pretty = True, has_content_based_path = False)
     return [
         DefaultInfo(),
         RunInfo(args = ["echo", "hello"]),

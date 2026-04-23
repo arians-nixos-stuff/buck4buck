@@ -45,6 +45,7 @@ def _write_json_cell_path(ctx):
         {
             node.label: node.inputs(),
         },
+        has_content_based_path = False,
     )
     output = ctx.output.ensure(output).abs_path()
     ctx.output.print(output)

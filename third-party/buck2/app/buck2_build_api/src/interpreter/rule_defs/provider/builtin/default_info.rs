@@ -27,7 +27,6 @@ use starlark::eval::Evaluator;
 use starlark::values::Freeze;
 use starlark::values::FreezeError;
 use starlark::values::FrozenHeap;
-use starlark::values::FrozenRef;
 use starlark::values::FrozenValue;
 use starlark::values::FrozenValueOfUnchecked;
 use starlark::values::FrozenValueTyped;
@@ -271,8 +270,9 @@ impl FrozenDefaultInfo {
     fn sub_targets_impl(
         &self,
     ) -> buck2_error::Result<
-        impl Iterator<Item = buck2_error::Result<(&str, FrozenRef<'static, FrozenProviderCollection>)>>
-        + '_,
+        impl Iterator<
+            Item = buck2_error::Result<(&str, FrozenValueTyped<'static, FrozenProviderCollection>)>,
+        > + '_,
     > {
         let sub_targets = FrozenDictRef::from_frozen_value(self.sub_targets.get())
             .ok_or_else(|| internal_error!("sub_targets should be a dict-like object"))?;
@@ -282,15 +282,18 @@ impl FrozenDefaultInfo {
                 k.to_value()
                     .unpack_str()
                     .ok_or_else(|| internal_error!("sub_targets should have string keys"))?,
-                v.downcast_frozen_ref::<FrozenProviderCollection>()
-                    .ok_or_else(|| internal_error!(
+                FrozenValueTyped::new(v).ok_or_else(|| {
+                    internal_error!(
                         "Values inside of a frozen provider should be frozen provider collection",
-                    ))?,
+                    )
+                })?,
             ))
         }))
     }
 
-    pub fn sub_targets(&self) -> SmallMap<&str, FrozenRef<'static, FrozenProviderCollection>> {
+    pub fn sub_targets(
+        &self,
+    ) -> SmallMap<&str, FrozenValueTyped<'static, FrozenProviderCollection>> {
         self.sub_targets_impl()
             .unwrap()
             .collect::<Result<_, _>>()

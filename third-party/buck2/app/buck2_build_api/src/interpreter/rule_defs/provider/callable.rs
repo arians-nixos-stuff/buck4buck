@@ -50,7 +50,6 @@ use starlark::values::Freeze;
 use starlark::values::FreezeError;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
-use starlark::values::FrozenRef;
 use starlark::values::FrozenValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
@@ -58,6 +57,7 @@ use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueLike;
+use starlark::values::any::FrozenAnyValue;
 use starlark::values::dict::AllocDict;
 use starlark::values::dict::DictRef;
 use starlark::values::list::AllocList;
@@ -252,7 +252,7 @@ struct UserProviderCallableNamed {
     id: Arc<ProviderId>,
     signature: ParametersSpec<FrozenValue>,
     /// This field is shared with provider instances.
-    data: FrozenRef<'static, UserProviderCallableData>,
+    data: FrozenAnyValue<UserProviderCallableData>,
     /// Type of provider instance.
     ty_provider: Ty,
     /// Type of provider callable.
@@ -425,7 +425,7 @@ impl TypeMatcher for UserProviderMatcher {
             Some(x) => {
                 // TODO(nga): this is a bit suboptimal:
                 //   instead we could compare just a pointer to the callable.
-                x.callable.ty_provider_type_instance_id == self.type_instance_id
+                x.callable_data().ty_provider_type_instance_id == self.type_instance_id
             }
             None => false,
         }
@@ -469,11 +469,13 @@ impl<'v> StarlarkValue<'v> for UserProviderCallable {
             buck2_error::Ok(UserProviderCallableNamed {
                 id: provider_id.dupe(),
                 signature,
-                data: eval.frozen_heap().alloc_any(UserProviderCallableData {
-                    provider_id,
-                    fields: self.fields.clone(),
-                    ty_provider_type_instance_id,
-                }),
+                data: eval
+                    .frozen_heap()
+                    .alloc_any_value(UserProviderCallableData {
+                        provider_id,
+                        fields: self.fields.clone(),
+                        ty_provider_type_instance_id,
+                    }),
                 ty_provider,
                 ty_callable,
             })

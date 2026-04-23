@@ -75,6 +75,25 @@ pub fn init_declare_output_has_content_based_path_default(
     Ok(())
 }
 
+/// Whether artifact-creating actions default `has_content_based_path` to `true`
+/// when a string name is passed as the output (i.e., the action implicitly
+/// declares the output).
+/// Controlled by `[buck2] action_has_content_based_path_default` buckconfig.
+pub static ACTION_HAS_CONTENT_BASED_PATH_DEFAULT: OnceLock<bool> = OnceLock::new();
+
+pub fn init_action_has_content_based_path_default(value: Option<bool>) -> buck2_error::Result<()> {
+    let value = value.unwrap_or(false);
+    ACTION_HAS_CONTENT_BASED_PATH_DEFAULT
+        .set(value)
+        .map_err(|_| {
+            buck2_error::buck2_error!(
+                buck2_error::ErrorTag::Tier0,
+                "ACTION_HAS_CONTENT_BASED_PATH_DEFAULT is already initialized"
+            )
+        })?;
+    Ok(())
+}
+
 /// Functions to allow users to interact with the Actions registry.
 ///
 /// Accessed via `ctx.actions.<function>`

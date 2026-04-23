@@ -15,6 +15,7 @@ use std::time::Duration;
 use std::time::Instant;
 
 use allocative::Allocative;
+use buck2_build_api::interpreter::rule_defs::context::init_action_has_content_based_path_default;
 use buck2_build_api::interpreter::rule_defs::context::init_declare_output_has_content_based_path_default;
 use buck2_build_api::spawner::BuckSpawner;
 use buck2_cli_proto::unstable_dice_dump_request::DiceDumpFormat;
@@ -703,6 +704,12 @@ impl DaemonState {
             init_declare_output_has_content_based_path_default(
                 declare_output_has_content_based_path_default,
             )?;
+
+            let action_has_content_based_path_default = root_config.parse(BuckconfigKeyRef {
+                section: "buck2",
+                property: "action_has_content_based_path_default",
+            })?;
+            init_action_has_content_based_path_default(action_has_content_based_path_default)?;
 
             // Modifies output paths: when true, includes is_modifier_marked_as_exec_platform in the
             // configuration hash so execution platforms get distinct hashes.

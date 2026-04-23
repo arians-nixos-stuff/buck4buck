@@ -17,9 +17,9 @@ use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
 use starlark::values::Freeze;
-use starlark::values::FrozenRef;
 use starlark::values::FrozenStringValue;
 use starlark::values::FrozenValue;
+use starlark::values::FrozenValueTyped;
 use starlark::values::StringValue;
 use starlark::values::Trace;
 use starlark::values::Value;
@@ -75,7 +75,7 @@ impl FrozenExecutionPlatformRegistrationInfo {
     // TODO(cjhopman): If we impl this on the non-frozen one, we can check validity when constructed rather than only when used.
     pub fn platforms(
         &self,
-    ) -> buck2_error::Result<Vec<FrozenRef<'static, FrozenExecutionPlatformInfo>>> {
+    ) -> buck2_error::Result<Vec<FrozenValueTyped<'static, FrozenExecutionPlatformInfo>>> {
         ListRef::from_frozen_value(self.platforms.get())
             .ok_or_else(|| {
                 ExecutionPlatformRegistrationTypeError::ExpectedListOfPlatforms(
@@ -85,16 +85,15 @@ impl FrozenExecutionPlatformRegistrationInfo {
             })?
             .iter()
             .map(|v| {
-                v.unpack_frozen()
-                    .expect("should be frozen")
-                    .downcast_frozen_ref::<FrozenExecutionPlatformInfo>()
-                    .ok_or_else(|| {
+                FrozenValueTyped::new(v.unpack_frozen().expect("should be frozen")).ok_or_else(
+                    || {
                         ExecutionPlatformRegistrationTypeError::NotAPlatform(
                             v.to_repr(),
                             v.get_type().to_owned(),
                         )
                         .into()
-                    })
+                    },
+                )
             })
             .collect::<buck2_error::Result<_>>()
     }

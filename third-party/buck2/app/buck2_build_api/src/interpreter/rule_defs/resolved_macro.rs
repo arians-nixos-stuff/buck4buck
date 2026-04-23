@@ -25,7 +25,7 @@ use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::values::Demand;
-use starlark::values::FrozenRef;
+use starlark::values::FrozenValueTyped;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Value;
@@ -58,7 +58,7 @@ use crate::interpreter::rule_defs::resolve_query_macro::ResolvedQueryMacro;
 
 #[derive(Debug, PartialEq, Allocative)]
 pub enum ResolvedMacro<'v> {
-    Location(FrozenRef<'v, FrozenDefaultInfo>),
+    Location(FrozenValueTyped<'v, FrozenDefaultInfo>),
     Source(Artifact),
     /// Holds an arg-like value
     ArgLike(FrozenCommandLineArg),

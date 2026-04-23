@@ -21,6 +21,8 @@ use cmp_any::PartialEqAny;
 use derive_more::Display;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
+use pagable::PagableDeserializer;
+use pagable::PagableSerializer;
 #[cfg(feature = "pagable")]
 use pagable::PagableTagged;
 #[cfg(feature = "pagable")]
@@ -36,6 +38,7 @@ use crate::api::computations::DiceComputations;
 use crate::api::demand::DemandRef;
 use crate::api::demand::DemandValue;
 use crate::api::key::Key;
+use crate::api::key::ValueSerialize;
 use crate::api::projection::DiceProjectionComputations;
 use crate::api::projection::ProjectionKey;
 use crate::api::storage_type::StorageType;
@@ -306,6 +309,19 @@ pub trait DiceKeyDyn: Allocative + Display + Send + Sync + PagableTagged + 'stat
     fn storage_type(&self) -> StorageType;
 
     fn provide<'a>(&'a self, demand: &mut Demand<'a>);
+
+    /// Serializes a value associated with this key via the key's `ValueSerialize`.
+    fn pagable_serialize_value(
+        &self,
+        value: &dyn DiceValueDyn,
+        ser: &mut dyn PagableSerializer,
+    ) -> Option<pagable::Result<()>>;
+
+    /// Deserializes a value associated with this key via the key's `ValueSerialize`.
+    fn pagable_deserialize_value<'de>(
+        &self,
+        deser: &mut dyn PagableDeserializer<'de>,
+    ) -> pagable::Result<Arc<dyn DiceValueDyn>>;
 }
 
 #[async_trait]
@@ -349,6 +365,25 @@ where
     fn provide<'a>(&'a self, demand: &mut Demand<'a>) {
         K::provide(self, demand)
     }
+
+    fn pagable_serialize_value(
+        &self,
+        value: &dyn DiceValueDyn,
+        ser: &mut dyn PagableSerializer,
+    ) -> Option<pagable::Result<()>> {
+        let typed_value: &K::Value = value
+            .downcast_ref()
+            .expect("type mismatch between Key and value during pagable serialization");
+        K::value_serialize().pagable_serialize_value(typed_value, ser)
+    }
+
+    fn pagable_deserialize_value<'de>(
+        &self,
+        deser: &mut dyn PagableDeserializer<'de>,
+    ) -> pagable::Result<Arc<dyn DiceValueDyn>> {
+        let typed_value: K::Value = K::value_serialize().pagable_deserialize_value(deser)?;
+        Ok(Arc::new(DiceKeyValue::<K>::new(typed_value)))
+    }
 }
 
 #[cfg_attr(feature = "pagable", pagable_typetag)]
@@ -370,6 +405,19 @@ pub trait DiceProjectionDyn: Allocative + Display + Send + Sync + PagableTagged 
     fn key_type_name(&self) -> &'static str;
 
     fn storage_type(&self) -> StorageType;
+
+    /// See [`DiceKeyDyn::pagable_serialize_value`].
+    fn pagable_serialize_value(
+        &self,
+        value: &dyn DiceValueDyn,
+        ser: &mut dyn PagableSerializer,
+    ) -> Option<pagable::Result<()>>;
+
+    /// See [`DiceKeyDyn::pagable_deserialize_value`].
+    fn pagable_deserialize_value<'de>(
+        &self,
+        deser: &mut dyn PagableDeserializer<'de>,
+    ) -> pagable::Result<Arc<dyn DiceValueDyn>>;
 }
 
 impl<K> DiceProjectionDyn for K
@@ -412,6 +460,25 @@ where
 
     fn storage_type(&self) -> StorageType {
         K::storage_type()
+    }
+
+    fn pagable_serialize_value(
+        &self,
+        value: &dyn DiceValueDyn,
+        ser: &mut dyn PagableSerializer,
+    ) -> Option<pagable::Result<()>> {
+        let typed_value: &K::Value = value
+            .downcast_ref()
+            .expect("type mismatch between ProjectionKey and value during pagable serialization");
+        K::value_serialize().pagable_serialize_value(typed_value, ser)
+    }
+
+    fn pagable_deserialize_value<'de>(
+        &self,
+        deser: &mut dyn PagableDeserializer<'de>,
+    ) -> pagable::Result<Arc<dyn DiceValueDyn>> {
+        let typed_value: K::Value = K::value_serialize().pagable_deserialize_value(deser)?;
+        Ok(Arc::new(DiceProjectValue::<K>::new(typed_value)))
     }
 }
 

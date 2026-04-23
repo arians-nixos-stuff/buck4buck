@@ -357,6 +357,7 @@ pub trait Materializer: Allocative + Send + Sync + 'static {
     async fn register_eager_paths(
         &self,
         _paths: Vec<ProjectRelativePathBuf>,
+        _event_dispatcher: EventDispatcher,
     ) -> buck2_error::Result<Box<dyn EagerMaterializationGuard>> {
         Ok(Box::new(()))
     }

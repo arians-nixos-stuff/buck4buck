@@ -623,10 +623,15 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
     async fn register_eager_paths(
         &self,
         paths: Vec<ProjectRelativePathBuf>,
+        event_dispatcher: EventDispatcher,
     ) -> buck2_error::Result<Box<dyn EagerMaterializationGuard>> {
         let (sender, receiver) = oneshot::channel();
         self.command_sender
-            .send(MaterializerCommand::RegisterEagerPaths(paths, sender))?;
+            .send(MaterializerCommand::RegisterEagerPaths(
+                paths,
+                event_dispatcher,
+                sender,
+            ))?;
         let leases = receiver
             .await
             .buck_error_context("No response from materializer")?;

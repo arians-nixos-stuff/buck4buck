@@ -188,6 +188,7 @@ pub(super) enum MaterializerCommand<T: 'static> {
     /// Register paths for eager materialization so they are materialized on declare
     RegisterEagerPaths(
         Vec<ProjectRelativePathBuf>,
+        EventDispatcher,
         oneshot::Sender<Vec<Arc<EagerPathLease<T>>>>,
     ),
 
@@ -246,7 +247,7 @@ impl<T> std::fmt::Debug for MaterializerCommand<T> {
             MaterializerCommand::Subscription(op) => write!(f, "Subscription({op:?})",),
             MaterializerCommand::Extension(ext) => write!(f, "Extension({ext:?})"),
             MaterializerCommand::Abort => write!(f, "Abort"),
-            MaterializerCommand::RegisterEagerPaths(paths, _) => {
+            MaterializerCommand::RegisterEagerPaths(paths, _, _) => {
                 write!(f, "RegisterEagerPaths({paths:?})")
             }
             MaterializerCommand::ReleaseEagerPath(path) => {
@@ -665,6 +666,13 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                     {
                         self.eager_materializations
                             .add_bridged_declare(eager_path, &path);
+                        self.maybe_log_command(&event_dispatcher, || {
+                            buck2_data::materializer_command::Data::EagerDispatchOnDeclare(
+                                buck2_data::materializer_command::EagerDispatchOnDeclare {
+                                    path: path.to_string(),
+                                },
+                            )
+                        });
                         self.materialize_artifact_with_priority(
                             &path,
                             event_dispatcher,
@@ -734,7 +742,14 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             MaterializerCommand::Subscription(sub) => sub.execute(self),
             MaterializerCommand::Extension(ext) => ext.execute(self),
             MaterializerCommand::Abort => unreachable!(),
-            MaterializerCommand::RegisterEagerPaths(paths, sender) => {
+            MaterializerCommand::RegisterEagerPaths(paths, event_dispatcher, sender) => {
+                self.maybe_log_command(&event_dispatcher, || {
+                    buck2_data::materializer_command::Data::RegisterEagerPaths(
+                        buck2_data::materializer_command::RegisterEagerPaths {
+                            paths: paths.iter().map(|p| p.to_string()).collect::<Vec<_>>(),
+                        },
+                    )
+                });
                 sender.send(self.register_eager_paths(paths)).ok();
             }
             MaterializerCommand::ReleaseEagerPath(path) => self.release_eager_path(path),

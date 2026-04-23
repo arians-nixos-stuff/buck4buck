@@ -355,6 +355,18 @@ impl BuckActionExecutor {
             output_trees_download_config,
         }
     }
+
+    pub(crate) fn materializer(&self) -> &dyn Materializer {
+        self.materializer.as_ref()
+    }
+
+    pub(crate) fn is_local_execution_possible(
+        &self,
+        executor_preference: buck2_execute::execute::request::ExecutorPreference,
+    ) -> bool {
+        self.command_executor
+            .is_local_execution_possible(executor_preference)
+    }
 }
 
 struct BuckActionExecutionContext<'a> {

@@ -15,7 +15,7 @@ for i in $(seq 1 10); do
 done
 mkdir -p "$(dirname "$1")"
 touch "$1"
-""", is_executable = True)
+""", is_executable = True, has_content_based_path = False)
     ctx.actions.run(
         [script, out.as_output()],
         always_print_stderr = True,

@@ -9,7 +9,7 @@
 def _dynamic(ctx):
     action_factory = ctx.bxl_actions().actions
 
-    foo = action_factory.write("foo", "content")
+    foo = action_factory.write("foo", "content", has_content_based_path = False)
     dynamic = action_factory.declare_output("dynamic", has_content_based_path = False)
 
     def my_deferred(ctx, artifacts, outputs):
@@ -95,7 +95,7 @@ def _dynamic_test_execution_resolution(ctx):
     dynamic = action_factory.declare_output("dynamic", has_content_based_path = False)
 
     # unused - just used as a placeholder for `dynamic` in the dynamic_output call
-    foo = action_factory.write("foo", "content")
+    foo = action_factory.write("foo", "content", has_content_based_path = False)
 
     def my_deferred(ctx, _artifacts, outputs):
         bxl_actions = ctx.bxl_actions()
@@ -142,7 +142,7 @@ def _dynamic_test_incompatible_targets(ctx):
     output = action_factory.declare_output("output", has_content_based_path = False)
 
     # unused - just used as a placeholder for `dynamic` in the dynamic_output call
-    foo = action_factory.write("foo", "content")
+    foo = action_factory.write("foo", "content", has_content_based_path = False)
 
     def my_deferred(ctx, _artifacts, outputs):
         result = ctx.cquery(target_platform = "//platforms:platform1").deps("//:incompatible", 1)

@@ -316,7 +316,7 @@ def _failing_validation_with_content_based_path_impl(ctx):
     }, pretty = True)
 
     return [
-        DefaultInfo(default_output = ctx.actions.write("out", "hello world")),
+        DefaultInfo(default_output = ctx.actions.write("out", "hello world", has_content_based_path = False)),
         ValidationInfo(validations = [
             ValidationSpec(
                 name = "whistle",
@@ -390,6 +390,7 @@ def _use_projection_with_content_based_path_impl(ctx):
             "with open(sys.argv[3], 'w') as f:",
             "  f.write('hello projection2')",
         ],
+        has_content_based_path = False,
     )
 
     out = ctx.actions.declare_output("out", has_content_based_path = True)
@@ -532,6 +533,7 @@ def _argsfile_with_incorrectly_declared_output_impl(ctx):
             cmd_args(out, format = "with open('{}', 'w') as f:"),
             "  f.write('blah')",
         ],
+        has_content_based_path = False,
     )
 
     args = cmd_args(["fbpython", script], hidden = [out.as_output()])
@@ -595,7 +597,7 @@ def _resolve_promise_artifact_impl(ctx: AnalysisContext) -> list[Provider]:
     if ctx.attrs.assert_promised_artifact_has_content_based_path:
         hello_artifact = ctx.actions.assert_has_content_based_path(hello_artifact)
 
-    written = ctx.actions.write("hello.out", hello_artifact)
+    written = ctx.actions.write("hello.out", hello_artifact, has_content_based_path = False)
 
     return [DefaultInfo(default_output = written)]
 
@@ -607,7 +609,7 @@ resolve_promise_artifact = rule(impl = _resolve_promise_artifact_impl, attrs = {
 AnonNonCbpInfo = provider(fields = ["artifact"])
 
 def _anon_non_cbp_impl(ctx: AnalysisContext) -> list[Provider]:
-    out = ctx.actions.write("out", "anon_content")
+    out = ctx.actions.write("out", "anon_content", has_content_based_path = False)
     return [DefaultInfo(), AnonNonCbpInfo(artifact = out)]
 
 _anon_non_cbp = anon_rule(
@@ -724,6 +726,7 @@ def _non_content_based_exec_dep_impl(ctx):
             "with open(sys.argv[1], 'w') as f:",
             "  f.write('hello world')",
         ],
+        has_content_based_path = False,
     )
     out = ctx.actions.declare_output("out", has_content_based_path = True)
     ctx.actions.run(

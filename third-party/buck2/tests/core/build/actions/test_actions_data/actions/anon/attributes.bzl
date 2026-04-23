@@ -110,7 +110,7 @@ _complex_collection = rule(impl = _complex_collection_impl, attrs = {
 })
 
 def _complex_source_impl(ctx: AnalysisContext) -> list[Provider]:
-    artifact = ctx.actions.write("my_short_path", "")
+    artifact = ctx.actions.write("my_short_path", "", has_content_based_path = False)
     return [DefaultInfo(default_output = artifact)]
 
 _complex_source = rule(impl = _complex_source_impl, attrs = {})
@@ -134,7 +134,7 @@ def _complex_artifacts_impl(ctx: AnalysisContext) -> Promise:
         _assert_eq(res.declared_artifact.basename, "my_shorter_path")
         return [DefaultInfo()]
 
-    declared_artifact = ctx.actions.write("my_shorter_path", "")
+    declared_artifact = ctx.actions.write("my_shorter_path", "", has_content_based_path = False)
 
     return ctx.actions.anon_target(_artifacts_mirror, {
         "build_artifact": ctx.attrs.build_artifact,
@@ -152,7 +152,7 @@ _complex_artifacts = rule(impl = _complex_artifacts_impl, attrs = {
 HelloInfo = provider(fields = ["output"])
 
 def _builder_impl(ctx: AnalysisContext) -> list[Provider]:
-    hello = ctx.actions.write("hello.out", "hello")
+    hello = ctx.actions.write("hello.out", "hello", has_content_based_path = False)
     return [DefaultInfo(), HelloInfo(output = hello)]
 
 _builder = anon_rule(impl = _builder_impl, artifact_promise_mappings = {"artifact": lambda x: x[HelloInfo].output}, attrs = {})

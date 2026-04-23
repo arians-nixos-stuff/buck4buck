@@ -51,7 +51,7 @@ echo_check = rule(
 )
 
 def _symlink_check_impl(ctx):
-    data = ctx.actions.write("data", ctx.attrs.param)
+    data = ctx.actions.write("data", ctx.attrs.param, has_content_based_path = False)
     out = ctx.actions.declare_output("out/symlink", has_content_based_path = False)
 
     # NOTE: "data" and "out" will be next to each other here, hence ../data

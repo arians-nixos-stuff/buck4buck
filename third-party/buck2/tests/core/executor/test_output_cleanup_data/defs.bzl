@@ -50,7 +50,7 @@ action = rule(
 )
 
 def _symlinked_dir_impl(ctx):
-    f = ctx.actions.write("dst/f", "file")
+    f = ctx.actions.write("dst/f", "file", has_content_based_path = False)
     out = ctx.actions.symlinked_dir("out", {ctx.attrs.seed: f}, has_content_based_path = False)
     return [DefaultInfo(default_output = out)]
 
@@ -62,7 +62,7 @@ symlinked_dir = rule(
 )
 
 def _write_impl(ctx):
-    out = ctx.actions.write("out", ctx.attrs.seed)
+    out = ctx.actions.write("out", ctx.attrs.seed, has_content_based_path = False)
     return [DefaultInfo(default_output = out)]
 
 write = rule(
@@ -73,7 +73,7 @@ write = rule(
 )
 
 def _copy_impl(ctx):
-    f = ctx.actions.write("dst/f", ctx.attrs.seed)
+    f = ctx.actions.write("dst/f", ctx.attrs.seed, has_content_based_path = False)
     out = ctx.actions.copy_file("out", f, has_content_based_path = False)
     return [DefaultInfo(default_output = out)]
 

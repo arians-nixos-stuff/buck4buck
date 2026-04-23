@@ -13,7 +13,7 @@ def _assert_eq(a, b):
         fail("Expected {} == {}".format(a, b))
 
 def _builder_impl(ctx: AnalysisContext) -> list[Provider]:
-    a = ctx.actions.write("input", "hello")
+    a = ctx.actions.write("input", "hello", has_content_based_path = False)
     b = ctx.actions.declare_output("output", has_content_based_path = False)
     ctx.actions.run(cmd_args("cp", a, b.as_output()), category = "cp")
     return [DefaultInfo(default_output = b)]

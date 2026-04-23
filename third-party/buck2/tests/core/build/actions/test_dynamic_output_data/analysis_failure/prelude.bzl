@@ -19,7 +19,7 @@ _analysis_failure_f = dynamic_actions(
 )
 
 def _analysis_failure_impl(ctx: AnalysisContext) -> list[Provider]:
-    input = ctx.actions.write("input", "test")
+    input = ctx.actions.write("input", "test", has_content_based_path = False)
     output = ctx.actions.declare_output("output", has_content_based_path = False)
 
     ctx.actions.dynamic_output_new(_analysis_failure_f(

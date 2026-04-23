@@ -42,8 +42,8 @@ symlink_files = rule(
 def write_transitive_file_impl(ctx):
     # Set up a transitive artifact to demonstrate that they aren't handled correctly
     # TODO(T227006457) - fix this quirk and invert the corresponding test case
-    transitive_1 = ctx.actions.write("tdep1", "transitive content")
-    out = ctx.actions.write("out_file", "out content").with_associated_artifacts([transitive_1])
+    transitive_1 = ctx.actions.write("tdep1", "transitive content", has_content_based_path = False)
+    out = ctx.actions.write("out_file", "out content", has_content_based_path = False).with_associated_artifacts([transitive_1])
     return [DefaultInfo(default_output = out)]
 
 def symlink_transitive_files_impl(ctx):

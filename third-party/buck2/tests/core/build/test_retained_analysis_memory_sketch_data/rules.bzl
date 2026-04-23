@@ -23,7 +23,7 @@ def _memory_retaining_rule_impl(ctx):
     data = list(range(memory_size // 8))
 
     # Write output
-    out = ctx.actions.write("out.txt", "")
+    out = ctx.actions.write("out.txt", "", has_content_based_path = False)
 
     # Store in a provider to retain the memory
     # Using a custom provider ensures the list stays in the frozen heap

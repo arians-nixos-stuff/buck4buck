@@ -9,7 +9,7 @@
 def _basic_incremental_actions_impl(ctx) -> list[Provider]:
     out = ctx.actions.declare_output("out", has_content_based_path = ctx.attrs.use_content_based_path)
     ctx.actions.run(
-        cmd_args(["fbpython", ctx.attrs.script] + ["--out", out.as_output()], hidden = [ctx.actions.write("invalidate_action_and_metadata", ctx.attrs.invalidate)]),
+        cmd_args(["fbpython", ctx.attrs.script] + ["--out", out.as_output()], hidden = [ctx.actions.write("invalidate_action_and_metadata", ctx.attrs.invalidate, has_content_based_path = False)]),
         category = "incremental",
         no_outputs_cleanup = ctx.attrs.use_incremental,
         metadata_env_var = "METADATA_PATH",
@@ -29,8 +29,8 @@ basic_incremental_action = rule(impl = _basic_incremental_actions_impl, attrs = 
 
 def _incremental_action_with_metadata_optout_impl(ctx) -> list[Provider]:
     out = ctx.actions.declare_output("out", has_content_based_path = False)
-    input_not_in_metadata = ctx.actions.write("input_not_in_metadata", "input_not_in_metadata")
-    input_in_metadata = ctx.actions.write("input_in_metadata", "input_in_metadata")
+    input_not_in_metadata = ctx.actions.write("input_not_in_metadata", "input_not_in_metadata", has_content_based_path = False)
+    input_in_metadata = ctx.actions.write("input_in_metadata", "input_in_metadata", has_content_based_path = False)
 
     script = """
 import json
@@ -47,7 +47,7 @@ with open(sys.argv[1], "w") as f:
 """
     artifact_tag = ctx.actions.artifact_tag()
 
-    script = artifact_tag.tag_artifacts(ctx.actions.write("script.py", script, is_executable = True))
+    script = artifact_tag.tag_artifacts(ctx.actions.write("script.py", script, is_executable = True, has_content_based_path = False))
 
     ctx.actions.run(
         cmd_args(["fbpython", script, out.as_output()], hidden = [artifact_tag.tag_artifacts(input_not_in_metadata), input_in_metadata]),

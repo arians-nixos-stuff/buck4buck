@@ -12,7 +12,7 @@ def _test_impl(ctx):
     dep_file = ctx.actions.declare_output("depfile", has_content_based_path = False)
     app = ctx.actions.declare_output("app", has_content_based_path = False)
 
-    seed = ctx.actions.write("seed", ctx.attrs.seed)
+    seed = ctx.actions.write("seed", ctx.attrs.seed, has_content_based_path = False)
 
     ctx.actions.run(
         [
@@ -116,7 +116,7 @@ def _input_tagged_multiple_times_impl(ctx):
     dep_file1 = ctx.actions.declare_output("depfile1", has_content_based_path = False)
     dep_file2 = ctx.actions.declare_output("depfile2", has_content_based_path = False)
 
-    input = tag1.tag_artifacts(tag2.tag_artifacts(ctx.actions.write("input_tagged_multiple_times.txt", "input")))
+    input = tag1.tag_artifacts(tag2.tag_artifacts(ctx.actions.write("input_tagged_multiple_times.txt", "input", has_content_based_path = False)))
 
     args = cmd_args([
         "sh",

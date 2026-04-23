@@ -9,7 +9,7 @@
 HelloInfo = provider(fields = ["output"])
 
 def _builder_impl(ctx: AnalysisContext) -> list[Provider]:
-    hello = ctx.actions.write("hello.out", "hello")
+    hello = ctx.actions.write("hello.out", "hello", has_content_based_path = False)
     return [DefaultInfo(), HelloInfo(output = hello)]
 
 _builder = anon_rule(

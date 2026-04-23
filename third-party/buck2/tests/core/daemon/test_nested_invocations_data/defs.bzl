@@ -39,7 +39,7 @@ import sys
 
 buck_path = sys.argv[1]
 subprocess.run([buck_path, "debug", "trace-io", "enable"])
-    """)
+    """, has_content_based_path = False)
     ctx.actions.run(
         [
             "fbpython",

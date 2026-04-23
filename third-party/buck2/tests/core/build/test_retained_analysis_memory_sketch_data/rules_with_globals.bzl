@@ -16,7 +16,7 @@ def _rule_with_globals_impl(ctx):
 
     This tests that memory from bzl globals is included in the sketch.
     """
-    out = ctx.actions.write("out.txt", "")
+    out = ctx.actions.write("out.txt", "", has_content_based_path = False)
 
     return [
         DefaultInfo(default_output = out),

@@ -15,7 +15,7 @@ def _anon_rule_impl(ctx):
     # Allocate some memory in the anon target
     data = list(range(ctx.attrs.memory_size // 8))
 
-    out = ctx.actions.write("out.txt", "")
+    out = ctx.actions.write("out.txt", "", has_content_based_path = False)
 
     return [
         DefaultInfo(default_output = out),
@@ -41,7 +41,7 @@ def _rule_with_anon_impl(ctx):
 
     # Create an anon target that allocates memory
     def process_anon(providers):
-        out = ctx.actions.write("out.txt", "")
+        out = ctx.actions.write("out.txt", "", has_content_based_path = False)
 
         return [
             DefaultInfo(default_output = out),

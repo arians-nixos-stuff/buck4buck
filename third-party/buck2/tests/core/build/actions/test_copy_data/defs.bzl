@@ -12,7 +12,7 @@ def _impl(ctx):
     elif ctx.attrs.src != None:
         src = ctx.attrs.src
     elif ctx.attrs.write_executable_bit != None:
-        src = ctx.actions.write("empty.txt", "", is_executable = bool(ctx.attrs.write_executable_bit))
+        src = ctx.actions.write("empty.txt", "", is_executable = bool(ctx.attrs.write_executable_bit), has_content_based_path = False)
     else:
         fail("Must specify either src or write_executable_bit")
 

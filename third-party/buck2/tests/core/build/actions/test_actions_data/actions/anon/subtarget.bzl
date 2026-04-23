@@ -15,7 +15,7 @@ def _assert_eq(a, b):
         fail("Expected {} == {}".format(a, b))
 
 def _anon_impl(ctx: AnalysisContext) -> list[Provider]:
-    output = ctx.actions.write("hello.txt", "hello")
+    output = ctx.actions.write("hello.txt", "hello", has_content_based_path = False)
     return [DefaultInfo(default_outputs = [output])]
 
 _anon = rule(impl = _anon_impl, attrs = {"dep": attrs.dep()})

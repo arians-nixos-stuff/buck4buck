@@ -22,7 +22,7 @@ _basic_f = dynamic_actions(
 
 # Basic test
 def _basic(ctx: AnalysisContext) -> list[Provider]:
-    input = ctx.actions.write("input", str(7 * 6))
+    input = ctx.actions.write("input", str(7 * 6), has_content_based_path = False)
     output = ctx.actions.declare_output("output", has_content_based_path = False)
 
     ctx.actions.dynamic_output_new(_basic_f(
@@ -48,7 +48,7 @@ _two_f = dynamic_actions(
 
 # Produce two output files
 def _two(ctx: AnalysisContext) -> list[Provider]:
-    input = ctx.actions.write("input", "test")
+    input = ctx.actions.write("input", "test", has_content_based_path = False)
     output1 = ctx.actions.declare_output("output1", has_content_based_path = False)
     output2 = ctx.actions.declare_output("output2", has_content_based_path = False)
 
@@ -110,7 +110,7 @@ _nested_f2 = dynamic_actions(
 
 # Nested dynamic outputs
 def _nested(ctx: AnalysisContext) -> list[Provider]:
-    input = ctx.actions.write("input", "test")
+    input = ctx.actions.write("input", "test", has_content_based_path = False)
     symlinked_dir = ctx.actions.declare_output("output1_symlinked_dir", dir = True, has_content_based_path = False)
 
     ctx.actions.dynamic_output_new(_nested_f(
@@ -147,6 +147,7 @@ def _command(ctx: AnalysisContext) -> list[Provider]:
             cmd_args(["with open(r'", hello, "', 'w') as f:"], delimiter = ""),
             "  f.write('Hello\\n')",
         ],
+        has_content_based_path = False,
     )
     ctx.actions.run(cmd_args(["fbpython", write_hello], hidden = hello.as_output()), category = "test_category")
 
@@ -162,6 +163,7 @@ def _command(ctx: AnalysisContext) -> list[Provider]:
             "with open(sys.argv[3], 'w') as f:",
             "  f.write(sys.argv[1] + ' universe\\n')",
         ],
+        has_content_based_path = False,
     )
 
     ctx.actions.dynamic_output_new(_command_f(
@@ -174,7 +176,7 @@ def _command(ctx: AnalysisContext) -> list[Provider]:
 
 def _create_f_impl(actions: AnalysisActions, input: ArtifactValue, output: OutputArtifact):
     src = input.read_string()
-    new_file = actions.write("new_file", src)
+    new_file = actions.write("new_file", src, has_content_based_path = False)
     actions.copy_file(output, new_file)
     return []
 
@@ -188,7 +190,7 @@ _create_f = dynamic_actions(
 
 # Create a fresh output inside the dynamic
 def _create(ctx: AnalysisContext) -> list[Provider]:
-    input = ctx.actions.write("input", str(7 * 6))
+    input = ctx.actions.write("input", str(7 * 6), has_content_based_path = False)
     output = ctx.actions.declare_output("output", has_content_based_path = False)
 
     ctx.actions.dynamic_output_new(_create_f(
@@ -201,7 +203,7 @@ def _create_duplicate_f_impl(actions: AnalysisActions, input: ArtifactValue, out
     src = input.read_string()
 
     # Deliberately reuse the names input/output
-    new_output = actions.write("output", src)
+    new_output = actions.write("output", src, has_content_based_path = False)
 
     # We can't have two actions that do copy with "output" as the name
     # since then we get conflicting identifiers for category `copy`.
@@ -222,7 +224,7 @@ _create_duplicate_f = dynamic_actions(
 
 # Create a fresh output inside the dynamic, which clashes
 def _create_duplicate(ctx: AnalysisContext) -> list[Provider]:
-    input = ctx.actions.write("input", str(7 * 6))
+    input = ctx.actions.write("input", str(7 * 6), has_content_based_path = False)
     output = ctx.actions.declare_output("output", has_content_based_path = False)
 
     ctx.actions.dynamic_output_new(_create_duplicate_f(
@@ -255,7 +257,7 @@ def assert_eq(a, b):
 
 def _assert_output_value_impl(ctx: AnalysisContext) -> list[Provider]:
     produced = ctx.attrs.dep[DefaultInfo].default_outputs[0]
-    value = ctx.actions.write("value", ctx.attrs.value)
+    value = ctx.actions.write("value", ctx.attrs.value, has_content_based_path = False)
     output = ctx.actions.declare_output("output", has_content_based_path = False)
     run = ctx.actions.write(
         "run.py",
@@ -271,6 +273,7 @@ def _assert_output_value_impl(ctx: AnalysisContext) -> list[Provider]:
             "with open(sys.argv[3], 'w') as f:",
             "  f.write('Success\\n')",
         ],
+        has_content_based_path = False,
     )
     ctx.actions.run(cmd_args(["fbpython", run, value, produced, output.as_output()]), category = "test_category")
     return [DefaultInfo(default_output = output)]

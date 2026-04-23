@@ -20,7 +20,7 @@ def _test_startswith_impl(ctx):
     if len(macro_prefix_matching) != 1:
         fail("Expected 1 flags starting with -some-flag-with-macro, got {}".format(len(macro_prefix_matching)))
 
-    output = ctx.actions.write("result.txt", "ok\n")
+    output = ctx.actions.write("result.txt", "ok\n", has_content_based_path = False)
     return [DefaultInfo(default_output = output)]
 
 test_startswith = rule(
@@ -41,7 +41,7 @@ def _test_equality_impl(ctx):
     if "-nonexistent" in flags:
         fail("Did not expect -nonexistent in flags")
 
-    output = ctx.actions.write("result.txt", "ok\n")
+    output = ctx.actions.write("result.txt", "ok\n", has_content_based_path = False)
     return [DefaultInfo(default_output = output)]
 
 test_equality = rule(

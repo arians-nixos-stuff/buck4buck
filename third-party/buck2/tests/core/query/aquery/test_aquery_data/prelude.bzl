@@ -7,15 +7,15 @@
 # above-listed licenses.
 
 def _test(ctx: AnalysisContext):
-    dep = ctx.actions.write("dep", "")
+    dep = ctx.actions.write("dep", "", has_content_based_path = False)
     default = ctx.actions.copy_file("default", dep, has_content_based_path = False)
-    other = ctx.actions.write("other", "")
+    other = ctx.actions.write("other", "", has_content_based_path = False)
 
-    sub_default = ctx.actions.write("sub_default", "")
-    sub_other = ctx.actions.write("sub_other", "")
+    sub_default = ctx.actions.write("sub_default", "", has_content_based_path = False)
+    sub_other = ctx.actions.write("sub_other", "", has_content_based_path = False)
 
     # Unused
-    ctx.actions.write("unused", "")
+    ctx.actions.write("unused", "", has_content_based_path = False)
 
     return [DefaultInfo(
         default_outputs = [default],

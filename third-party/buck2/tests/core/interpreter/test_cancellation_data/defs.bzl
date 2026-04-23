@@ -11,7 +11,7 @@ def loop_long(kind):
 
 def _noop(ctx):
     outs = []
-    out = ctx.actions.write("out.txt", ctx.attrs.name)
+    out = ctx.actions.write("out.txt", ctx.attrs.name, has_content_based_path = False)
     outs.append(out)
     loop_long("analysis")
 

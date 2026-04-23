@@ -11,7 +11,7 @@ def _test_dynamic_output(ctx):
     actions = bxl_actions.actions
 
     dynamic = actions.declare_output("dynamic", has_content_based_path = False)
-    foo = actions.write("foo", "content")
+    foo = actions.write("foo", "content", has_content_based_path = False)
 
     def my_deferred(ctx, _artifacts, outputs):
         ctx.bxl_actions().actions.run(

@@ -14,7 +14,7 @@ def _fail(ctx):
 fail = rule(attrs = {}, impl = _fail)
 
 def _one(ctx):
-    return [DefaultInfo(default_output = ctx.actions.write("out", "one"))]
+    return [DefaultInfo(default_output = ctx.actions.write("out", "one", has_content_based_path = False))]
 
 one = rule(
     impl = _one,

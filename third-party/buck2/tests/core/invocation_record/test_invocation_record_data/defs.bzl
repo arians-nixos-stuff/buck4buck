@@ -19,7 +19,7 @@ def _hang(ctx):
 hang = rule(attrs = {"touch": attrs.string()}, impl = _hang)
 
 def _pass(ctx):
-    out = ctx.actions.write("out", "")
+    out = ctx.actions.write("out", "", has_content_based_path = False)
     return [DefaultInfo(out)]
 
 pass_ = rule(attrs = {}, impl = _pass)
@@ -51,7 +51,7 @@ def _fail(ctx):
 fail = rule(attrs = {}, impl = _fail)
 
 def _one(ctx):
-    return [DefaultInfo(default_output = ctx.actions.write("out", "one"))]
+    return [DefaultInfo(default_output = ctx.actions.write("out", "one", has_content_based_path = False))]
 
 one = rule(
     impl = _one,
@@ -59,7 +59,7 @@ one = rule(
 )
 
 def _two(ctx):
-    return [DefaultInfo(default_output = ctx.actions.write("out", "two"))]
+    return [DefaultInfo(default_output = ctx.actions.write("out", "two", has_content_based_path = False))]
 
 two = rule(
     impl = _two,

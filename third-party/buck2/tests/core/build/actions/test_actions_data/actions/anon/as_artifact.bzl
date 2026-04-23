@@ -15,7 +15,7 @@ def _assert_eq(a, b):
 HelloInfo = provider(fields = ["output"])
 
 def _builder_impl(ctx: AnalysisContext) -> list[Provider]:
-    hello = ctx.actions.write("dir/hello.out", "hello")
+    hello = ctx.actions.write("dir/hello.out", "hello", has_content_based_path = False)
     return [DefaultInfo(), HelloInfo(output = hello)]
 
 _builder = anon_rule(
@@ -111,7 +111,7 @@ _check_default_output = rule(impl = _check_default_output_impl, attrs = {"src": 
 # Test promise artifacts when calling ctx.actions.anon_targets()
 
 def _anon_rule_impl(ctx: AnalysisContext) -> list[Provider]:
-    hello = ctx.actions.write("dir/hello.out", ctx.attrs.my_content)
+    hello = ctx.actions.write("dir/hello.out", ctx.attrs.my_content, has_content_based_path = False)
     return [DefaultInfo(), HelloInfo(output = hello)]
 
 _anon_rule1 = anon_rule(

@@ -7,7 +7,7 @@
 # above-listed licenses.
 
 def _write(ctx: AnalysisContext) -> list[Provider]:
-    out = ctx.actions.write("out", "test")
+    out = ctx.actions.write("out", "test", has_content_based_path = False)
     return [DefaultInfo(default_output = out)]
 
 write = rule(impl = _write, attrs = {
@@ -34,7 +34,7 @@ cp = rule(impl = _cp, attrs = {
 })
 
 def _dynamic_cp(ctx: AnalysisContext) -> list[Provider]:
-    dummy = ctx.actions.write("dummy", "")
+    dummy = ctx.actions.write("dummy", "", has_content_based_path = False)
 
     inp = ctx.attrs.dep[DefaultInfo].default_outputs[0]
     out = ctx.actions.declare_output("out", has_content_based_path = False)
@@ -55,7 +55,7 @@ dynamic_cp = rule(impl = _dynamic_cp, attrs = {
 })
 
 def _dynamic_cp2(ctx: AnalysisContext) -> list[Provider]:
-    ctx.actions.write("dummy", "")
+    ctx.actions.write("dummy", "", has_content_based_path = False)
 
     inp = ctx.attrs.dep[DefaultInfo].default_outputs[0]
     out = ctx.actions.declare_output("out", has_content_based_path = False)
@@ -103,7 +103,7 @@ TSetForTest = transitive_set(args_projections = {"identity": _proj_identity})
 TSetForTestInfo = provider(fields = ["tset"])
 
 def _tset_write(ctx: AnalysisContext) -> list[Provider]:
-    out = ctx.actions.write("out", str(ctx.label.name))
+    out = ctx.actions.write("out", str(ctx.label.name), has_content_based_path = False)
     children = [d[TSetForTestInfo].tset for d in ctx.attrs.deps]
     tset = ctx.actions.tset(TSetForTest, value = out, children = children)
     return [
@@ -122,7 +122,7 @@ tset_write = rule(impl = _tset_write, attrs = {
 
 # Inner (leaf) anon target: just writes a file, no anon target deps.
 def _anon_inner_impl(ctx: AnalysisContext) -> list[Provider]:
-    out = ctx.actions.write("inner_out", "inner_content")
+    out = ctx.actions.write("inner_out", "inner_content", has_content_based_path = False)
     return [DefaultInfo(default_output = out)]
 
 _anon_inner = rule(impl = _anon_inner_impl, attrs = {})

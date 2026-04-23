@@ -14,8 +14,8 @@ rule2 = rule(impl = _rule_impl, attrs = {"foo": attrs.string()})
 rule3 = rule(impl = _rule_impl, attrs = {"foo": attrs.string()})
 
 def _rule_impl_with_run_info_and_default_info_outputs(ctx):
-    out = ctx.actions.write("default_out", "default_out")
-    run_info_out = ctx.actions.write("run_info_out", "run_info_out")
+    out = ctx.actions.write("default_out", "default_out", has_content_based_path = False)
+    run_info_out = ctx.actions.write("run_info_out", "run_info_out", has_content_based_path = False)
     return [
         DefaultInfo(default_outputs = [out]),
         RunInfo(args = cmd_args(run_info_out)),
@@ -37,7 +37,7 @@ NameInfo = provider(fields = ["tset"])
 
 def _rule_impl_with_tset(ctx):
     # Produce a file that contains our name.
-    out = ctx.actions.write("out.txt", str(ctx.label.name) + "\n")
+    out = ctx.actions.write("out.txt", str(ctx.label.name) + "\n", has_content_based_path = False)
 
     # Produce a tset that is our file concated wiht all the files emitted by
     # our children.

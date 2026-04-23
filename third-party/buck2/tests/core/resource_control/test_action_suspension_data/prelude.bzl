@@ -45,7 +45,7 @@ def _memory_allocating_actions_impl(ctx: AnalysisContext) -> list[Provider]:
             last_output = output
 
     # Have to do this because we don't show more than one default output for `--show-output`
-    output_paths = ctx.actions.write("output_paths", all_outputs)
+    output_paths = ctx.actions.write("output_paths", all_outputs, has_content_based_path = False)
 
     return [DefaultInfo(default_output = output_paths, other_outputs = all_outputs)]
 

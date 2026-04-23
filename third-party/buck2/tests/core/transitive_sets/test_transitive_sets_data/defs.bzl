@@ -17,7 +17,7 @@ NameInfo = provider(fields = ["tset"])
 
 def _test_impl(ctx):
     # Produce a file that contains our name.
-    out = ctx.actions.write("out.txt", str(ctx.label.name) + "\n")
+    out = ctx.actions.write("out.txt", str(ctx.label.name) + "\n", has_content_based_path = False)
 
     # Produce a tset that is our file concatenated with all the files emitted by
     # our children.
@@ -49,7 +49,7 @@ test = rule(
 )
 
 def _test_duplication_impl(ctx):
-    out = ctx.actions.write("out.txt", "hello world")
+    out = ctx.actions.write("out.txt", "hello world", has_content_based_path = False)
 
     tset1 = ctx.actions.tset(NameSet, value = out)
     tset2 = ctx.actions.tset(NameSet, value = out)
@@ -99,7 +99,7 @@ OptionalArgsNameInfo = provider(fields = ["tset"])
 def _optional_args_impl(ctx):
     # Produce a file whose short-name is our name.
     if ctx.attrs.has_artifact:
-        out = ctx.actions.write("{}".format(str(ctx.label.name)), "hello world")
+        out = ctx.actions.write("{}".format(str(ctx.label.name)), "hello world", has_content_based_path = False)
     else:
         out = None
 
@@ -135,7 +135,7 @@ OptionalJsonArgsNameInfo = provider(fields = ["tset"])
 def _optional_json_args_impl(ctx):
     # Produce a file whose short-name is our name.
     if ctx.attrs.has_artifact:
-        out = ctx.actions.write("{}".format(str(ctx.label.name)), "hello world")
+        out = ctx.actions.write("{}".format(str(ctx.label.name)), "hello world", has_content_based_path = False)
     else:
         out = None
 

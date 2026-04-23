@@ -15,8 +15,8 @@ def _assert_eq(a, b):
 def _test_action_error_handler_types(ctx):
     action_factory = ctx.bxl_actions().actions
 
-    stdout = action_factory.write("stdout", "foo")
-    stderr = action_factory.write("stderr", "bar")
+    stdout = action_factory.write("stdout", "foo", has_content_based_path = False)
+    stderr = action_factory.write("stderr", "bar", has_content_based_path = False)
     unused_out = action_factory.declare_output("out", has_content_based_path = False)
 
     def validate_action_error_handler_impl(ctx, artifacts, outputs):

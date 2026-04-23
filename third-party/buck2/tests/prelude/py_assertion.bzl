@@ -18,7 +18,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
         ),
         hidden = marker.as_output(),
     )
-    script, _ = ctx.actions.write("script.py", write_args, allow_args = True)
+    script, _ = ctx.actions.write("script.py", write_args, allow_args = True, has_content_based_path = False)
     ctx.actions.run(
         cmd_args("fbpython", script, ctx.attrs.script_args, hidden = write_args),
         category = "py_assertion",

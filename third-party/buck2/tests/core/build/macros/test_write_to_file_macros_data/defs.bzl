@@ -7,7 +7,7 @@
 # above-listed licenses.
 
 def _write_file(ctx):
-    f = ctx.actions.write("write_file.txt", "test test test")
+    f = ctx.actions.write("write_file.txt", "test test test", has_content_based_path = False)
     return [DefaultInfo(default_output = f)]
 
 write_file = rule(

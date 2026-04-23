@@ -8,14 +8,14 @@
 
 def _simple_test_impl(ctx):
     return [
-        DefaultInfo(default_output = ctx.actions.write("build", "")),
+        DefaultInfo(default_output = ctx.actions.write("build", "", has_content_based_path = False)),
         RunInfo(args = cmd_args([
-            ctx.actions.write("run", ""),
+            ctx.actions.write("run", "", has_content_based_path = False),
         ])),
         ExternalRunnerTestInfo(
             type = "custom",
             command = [cmd_args([
-                ctx.actions.write("test", ""),
+                ctx.actions.write("test", "", has_content_based_path = False),
             ])],
             env = {},
             labels = [],

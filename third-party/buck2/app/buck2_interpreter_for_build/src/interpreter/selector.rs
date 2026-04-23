@@ -15,6 +15,9 @@ use allocative::Allocative;
 use buck2_error::BuckErrorContext;
 use buck2_interpreter::types::select_fail::StarlarkSelectFail;
 use buck2_interpreter::types::select_incompatible::StarlarkSelectIncompatible;
+use serde::Serialize;
+use serde::Serializer;
+use serde::ser::SerializeMap;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::collections::SmallMap;
@@ -31,7 +34,6 @@ use starlark::values::Freezer;
 use starlark::values::FrozenStringValue;
 use starlark::values::FrozenValue;
 use starlark::values::Heap;
-use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::StringValue;
 use starlark::values::Trace;
@@ -49,7 +51,7 @@ use starlark::values::none::NoneOr;
 use starlark::values::starlark_value;
 
 /// Representation of `select()` in Starlark.
-#[derive(Debug, ProvidesStaticType, NoSerialize, Allocative)] // TODO selector should probably support serializing
+#[derive(Debug, ProvidesStaticType, Allocative)]
 #[repr(C)]
 pub enum StarlarkSelectorGen<V: ValueLifetimeless> {
     /// Simplest form, backed by dictionary representation
@@ -78,6 +80,28 @@ impl<V: ValueLifetimeless> Display for StarlarkSelectorGen<V> {
 unsafe impl<From: Coerce<To> + ValueLifetimeless, To: ValueLifetimeless>
     Coerce<StarlarkSelectorGen<To>> for StarlarkSelectorGen<From>
 {
+}
+
+impl<'v, V: ValueLike<'v>> Serialize for StarlarkSelectorGen<V>
+where
+    Self: StarlarkValue<'v>,
+{
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        match self {
+            StarlarkSelectorGen::Primary(dict_value) => {
+                let mut map = serializer.serialize_map(Some(2))?;
+                map.serialize_entry("__type", "selector")?;
+                map.serialize_entry("entries", &dict_value.get().to_value())?;
+                map.end()
+            }
+            StarlarkSelectorGen::Sum(left, right) => {
+                let mut map = serializer.serialize_map(Some(2))?;
+                map.serialize_entry("__type", "concat")?;
+                map.serialize_entry("items", &[left.to_value(), right.to_value()])?;
+                map.end()
+            }
+        }
+    }
 }
 
 starlark_complex_value!(pub StarlarkSelector);

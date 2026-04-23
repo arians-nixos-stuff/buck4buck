@@ -156,6 +156,8 @@ pub struct ReGang {
     pub num_of_workers: i32,
     /// Optional locality constraint for gang scheduling
     pub locality: Option<ReGangLocality>,
+    /// Optional number of sub-groups for locality partitioning
+    pub num_sub_groups: Option<i32>,
 }
 
 #[derive(Debug, buck2_error::Error)]
@@ -165,6 +167,10 @@ enum ReGangErrors {
     MissingField(&'static str),
     #[error("RE gang `num_of_workers` must be positive, got `{0}`")]
     InvalidNumOfWorkers(i32),
+    #[error(
+        "RE gang `num_sub_groups` must be at least 1 and divide `num_of_workers` evenly, got num_sub_groups={0}, num_of_workers={1}"
+    )]
+    InvalidNumSubGroups(i32, i32),
 }
 
 impl ReGang {
@@ -172,6 +178,7 @@ impl ReGang {
         capabilities: SortedMap<String, String>,
         num_of_workers: i32,
         locality: Option<ReGangLocality>,
+        num_sub_groups: Option<i32>,
     ) -> buck2_error::Result<ReGang> {
         if num_of_workers <= 0 {
             return Err(ReGangErrors::InvalidNumOfWorkers(num_of_workers).into());
@@ -181,10 +188,17 @@ impl ReGang {
             return Err(ReGangErrors::MissingField("capabilities").into());
         }
 
+        if let Some(n) = num_sub_groups {
+            if n < 1 || num_of_workers % n != 0 {
+                return Err(ReGangErrors::InvalidNumSubGroups(n, num_of_workers).into());
+            }
+        }
+
         Ok(ReGang {
             capabilities,
             num_of_workers,
             locality,
+            num_sub_groups,
         })
     }
 }

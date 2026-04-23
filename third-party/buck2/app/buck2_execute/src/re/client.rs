@@ -1611,6 +1611,7 @@ impl RemoteExecutionClientImpl {
                             num_workers: gang.num_of_workers,
                             member_spec,
                             locality,
+                            num_sub_groups: gang.num_sub_groups.unwrap_or(1),
                             ..Default::default()
                         },
                     ),

@@ -75,6 +75,8 @@ enum CommandExecutorConfigErrors {
     ReGangCapabilitiesNotADict(String, String),
     #[error("expected an integer for `num_of_workers` in `remote_execution_gang`, got `{0}`")]
     ReGangNumOfWorkersNotAnInt(String),
+    #[error("expected an integer for `num_sub_groups` in `remote_execution_gang`, got `{0}`")]
+    ReGangNumSubGroupsNotAnInt(String),
 }
 
 #[derive(
@@ -630,5 +632,21 @@ fn parse_remote_execution_gang<'v>(
         .map(ReGangLocality::parse)
         .transpose()?;
 
-    Ok(Some(ReGang::parse(capabilities, num_of_workers, locality)?))
+    let num_sub_groups = gang
+        .get_str("num_sub_groups")
+        .map(|v| {
+            v.unpack_i32().ok_or_else(|| {
+                buck2_error::Error::from(CommandExecutorConfigErrors::ReGangNumSubGroupsNotAnInt(
+                    v.to_repr(),
+                ))
+            })
+        })
+        .transpose()?;
+
+    Ok(Some(ReGang::parse(
+        capabilities,
+        num_of_workers,
+        locality,
+        num_sub_groups,
+    )?))
 }

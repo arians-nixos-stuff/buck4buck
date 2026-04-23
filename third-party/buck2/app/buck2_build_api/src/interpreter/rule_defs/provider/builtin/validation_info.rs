@@ -44,15 +44,47 @@ enum ValidationInfoError {
     ValidationSpecsEmpty,
 }
 
-/// Provider describing how a given target node should be validated.
-/// Validations are run when target with `ValidationInfo` provider is a transitive
-/// dependency of a requested target.
+/// Provider declaring how a target should be validated.
+///
+/// When a target carrying `ValidationInfo` is reachable via a transitive
+/// dependency edge from a target requested on the command line (e.g.
+/// `buck2 build`, `buck2 test`), Buck2 schedules every `ValidationSpec`
+/// it carries before the requested action is considered complete. A
+/// failed required validation causes the build to fail; an optional
+/// validation is skipped unless the user opts in via
+/// `--enable-optional-validations <name>`.
+///
+/// Validations run in parallel with the build of the requested target —
+/// they only have to finish before Buck2 reports success.
+///
+/// Constraints enforced at construction / freezing time:
+/// - `validations` must be a non-empty list of `ValidationSpec` values.
+/// - Spec names must be unique within the provider.
+///
+/// Example:
+/// ```python
+/// def _my_rule_impl(ctx):
+///     report = ctx.actions.declare_output("validation.json")
+///     ctx.actions.run(
+///         cmd_args("validator", "--out", report.as_output(), ctx.attrs.src),
+///         category = "my_validation",
+///     )
+///     return [
+///         DefaultInfo(default_output = ctx.attrs.src),
+///         ValidationInfo(validations = [
+///             ValidationSpec(name = "schema_check", validation_result = report),
+///         ]),
+///     ]
+/// ```
+///
+/// See `docs/rule_authors/validation.md` for the end-to-end story.
 #[internal_provider(validation_info_creator)]
 #[derive(Clone, Debug, Trace, Coerce, Freeze, ProvidesStaticType, Allocative)]
 #[freeze(validator = validate_validation_info, bounds = "V: ValueLike<'freeze>")]
 #[repr(transparent)]
 pub struct ValidationInfoGen<V: ValueLifetimeless> {
-    /// List of `ValidationSpec` values each representing a single validation.
+    /// Non-empty list of `ValidationSpec` values, each representing a single
+    /// validation. Spec names must be unique within this provider.
     validations: ValueOfUncheckedGeneric<V, Vec<FrozenStarlarkValidationSpec>>,
 }
 

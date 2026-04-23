@@ -46,11 +46,16 @@ enum ValidationSpecError {
     ValidationResultIsSourceArtifact,
 }
 
-/// Value describing a single identifiable validation.
-/// Validation is represented by a build artifact with defined structure.
-/// Content of such artifact determines if validation is successful or not.
-/// A collection of such objects forms a `ValidationInfo` provider
-/// which describes how a given target should be validated.
+/// A single, identifiable validation attached to a target.
+///
+/// A `ValidationSpec` pairs a stable name with a build artifact that, once
+/// produced, is parsed by Buck2 to decide pass/fail. Group one or more
+/// specs into a `ValidationInfo` provider to attach them to a target.
+///
+/// The `validation_result` artifact must be a build artifact (declared via
+/// `ctx.actions.declare_output(...)` and bound to an action) — source
+/// artifacts are rejected because validations are expected to be derived,
+/// reproducible outputs.
 #[derive(
     Debug,
     Trace,
@@ -63,15 +68,37 @@ enum ValidationSpecError {
 #[freeze(validator = validate_validation_spec, bounds = "V: ValueLike<'freeze>")]
 #[repr(C)]
 pub struct StarlarkValidationSpecGen<V: ValueLifetimeless> {
-    /// Name used to identify validation. Should be unique per target node.
+    /// Name identifying this validation. Must be non-empty and unique within
+    /// the enclosing `ValidationInfo`. Surfaces in CLI output and is the
+    /// handle used by `--enable-optional-validations <name>`.
     name: ValueOfUncheckedGeneric<V, String>,
-    /// Build artifact which is the result of running a validation.
-    /// Should contain JSON of defined schema setting API between Buck2 and user-created validators/scripts.
+    /// Build artifact produced by the validator. After the action that
+    /// produces it runs, Buck2 reads the file as UTF-8 JSON and expects
+    /// the following shape:
+    ///
+    /// ```json
+    /// {
+    ///   "version": 1,
+    ///   "data": {
+    ///     "status": "success",
+    ///     "message": "optional human-readable detail"
+    ///   }
+    /// }
+    /// ```
+    ///
+    /// - `version` (int, required): schema version. Currently `1`.
+    /// - `data.status` (string, required): `"success"` or `"failure"`.
+    /// - `data.message` (string, optional): shown to the user; supply on
+    ///   failure so the diagnostic is actionable.
+    ///
+    /// Buck2 surfaces three distinct errors if the file does not conform:
+    /// invalid JSON, incompatible schema version, or schema mismatch.
+    /// Source artifacts are rejected — the result must come from an action.
     validation_result: ValueOfUncheckedGeneric<V, ValueIsInputArtifactAnnotation>,
 
-    /// Is validation optional, i.e., should it be skipped by default?
-    /// By default validations are required unless this flag is specified.
-    /// Optional validations are only run when explicitly requested via CLI arguments.
+    /// If `True`, the validation is skipped by default and only runs when
+    /// the user passes `--enable-optional-validations <name>`. Defaults to
+    /// `False` (required).
     optional: bool,
 }
 
@@ -143,7 +170,7 @@ where
 #[starlark_module]
 fn validation_spec_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
-    /// Name identifying validation.
+    /// Unique name identifying this validation within its `ValidationInfo`.
     fn name<'v>(
         this: &'v StarlarkValidationSpec,
         heap: Heap<'v>,
@@ -152,13 +179,15 @@ fn validation_spec_methods(builder: &mut MethodsBuilder) {
     }
 
     #[starlark(attribute)]
-    /// Is validation optional.
+    /// Whether this validation is skipped by default (only run when explicitly
+    /// enabled via `--enable-optional-validations <name>`).
     fn optional<'v>(this: &'v StarlarkValidationSpec) -> starlark::Result<bool> {
         Ok(this.optional())
     }
 
     #[starlark(attribute)]
-    /// Artifact which is the result of running a validation.
+    /// Build artifact whose JSON contents Buck2 parses to decide pass/fail.
+    /// See `ValidationSpec` for the expected schema.
     fn validation_result<'v>(
         this: &'v StarlarkValidationSpec,
     ) -> starlark::Result<StarlarkArtifact> {

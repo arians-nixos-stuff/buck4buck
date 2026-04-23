@@ -54,9 +54,9 @@ use starlark::values::Freeze;
 use starlark::values::FreezeError;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
-use starlark::values::FrozenRef;
 use starlark::values::FrozenStringValue;
 use starlark::values::FrozenValue;
+use starlark::values::FrozenValueTyped;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
@@ -491,9 +491,8 @@ starlark_simple_value!(FrozenStarlarkRuleCallable);
 
 fn unpack_frozen_rule(
     rule: FrozenValue,
-) -> buck2_error::Result<FrozenRef<'static, FrozenStarlarkRuleCallable>> {
-    rule.downcast_frozen_ref::<FrozenStarlarkRuleCallable>()
-        .ok_or_else(|| internal_error!("Expecting FrozenRuleCallable"))
+) -> buck2_error::Result<FrozenValueTyped<'static, FrozenStarlarkRuleCallable>> {
+    FrozenValueTyped::new(rule).ok_or_else(|| internal_error!("Expecting FrozenRuleCallable"))
 }
 
 pub(crate) fn init_frozen_rule_get_impl() {

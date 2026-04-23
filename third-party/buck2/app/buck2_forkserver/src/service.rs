@@ -222,7 +222,11 @@ impl UnixForkserverService {
         if validated_cmd.network_access == Some(buck2_data::NetworkAccess::None)
             && validated_cmd.command_cgroup.is_some()
         {
-            cmd.env("INSIDE_NETWORK_ISOLATION", "1");
+            #[cfg(fbcode_build)]
+            {
+                cmd.env("INSIDE_NETWORK_ISOLATION", "1");
+                cmd.env("DOTSLASH_OFFLINE", "1");
+            }
 
             use std::os::unix::process::CommandExt;
             // Safety: unshare() is async-signal-safe.

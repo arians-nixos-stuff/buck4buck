@@ -643,7 +643,7 @@ impl FinishBuildSignals for FinishBuildSignalsImpl {
     async fn finish(self: Box<Self>) -> Result<(), CriticalPathError> {
         let _ignored = self.sender.sender.send(BuildSignal::BuildFinished);
 
-        self.handle.await.expect("Error joining critical path task")
+        self.handle.await.map_err(CriticalPathError::JoinError)?
     }
 }
 

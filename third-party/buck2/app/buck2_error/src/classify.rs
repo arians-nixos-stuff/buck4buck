@@ -392,6 +392,7 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::InstallerUnknown => rank!(tier0),
         ErrorTag::InstallerTier0 => rank!(tier0).hidden(),
         ErrorTag::InternalError => rank!(tier0),
+        ErrorTag::CriticalPathError => rank!(tier0),
         ErrorTag::Environment => rank!(environment).hidden(),
         ErrorTag::Tier0 => rank!(tier0).hidden(),
         // Daemon disconnected with nothing in stderr, likely SIGKILLed.

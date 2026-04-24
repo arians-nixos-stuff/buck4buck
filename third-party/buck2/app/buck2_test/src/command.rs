@@ -1582,6 +1582,15 @@ fn post_process_test_executor(s: &str) -> buck2_error::Result<PathBuf> {
             let exe = AbsPathBuf::new(
                 std::env::current_exe().buck_error_context("Cannot get Buck2 executable")?,
             )?;
+            // On Linux, /proc/self/exe appends " (deleted)" to the path when the
+            // binary has been removed from disk (e.g. after a buck2 upgrade).
+            if exe.as_path().to_string_lossy().ends_with(" (deleted)") {
+                return Err(buck2_error::buck2_error!(
+                    ErrorTag::BuckdExeDeleted,
+                    "The buck2 daemon's binary has been deleted from disk. \
+                     Run `buck2 kill` to restart the daemon with the current binary."
+                ));
+            }
             let exe = fs_util::canonicalize(&exe)
                 .categorize_internal()
                 .buck_error_context(

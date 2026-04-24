@@ -87,6 +87,8 @@ enum ErrorTag {
   DAEMON_STATE_INIT_FAILED = 503;
   DAEMON_STATUS = 504;
   DAEMON_REDIRECT = 505;
+  // The buck2 daemon's executable has been deleted from disk.
+  BUCKD_EXE_DELETED = 506;
   DAEMON_STARTUP_FAILED = 507;
   EXIT_STATUS = 517;
   EXIT_STATUS_UNKNOWN = 519;

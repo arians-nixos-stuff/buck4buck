@@ -1,11 +1,11 @@
 # This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
 
 $ buck cquery root//:foo -v0 --target-platforms=//:platform1
-root//:foo (root//:platform1#c5a711e011a6e011)
+root//:foo (root//:platform1#<HASH>)
 
 $ buck cquery root//:foo --console=none -v0 --target-platforms=//:platform2
 Command failed: 
-Error looking up configured node root//:foo (root//:platform2#3433942168d9b4cf)
+Error looking up configured node root//:foo (root//:platform2#<HASH>)
 
 Caused by:
     0: configuring attr `data`
@@ -13,7 +13,7 @@ Caused by:
 
 $ buck cquery root//:foo --console=none -v0 --target-platforms=//:platform3
 Command failed: 
-Error looking up configured node root//:foo (root//:platform3#b73e0c310480d7ce)
+Error looking up configured node root//:foo (root//:platform3#<HASH>)
 
 Caused by:
     0: configuring attr `data`

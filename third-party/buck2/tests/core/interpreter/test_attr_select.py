@@ -1,9 +1,10 @@
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 #
-# This source code is licensed under both the MIT license found in the
-# LICENSE-MIT file in the root directory of this source tree and the Apache
+# This source code is dual-licensed under either the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree or the Apache
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
-# of this source tree.
+# of this source tree. You may select, at your option, one of the
+# above-listed licenses.
 
 # pyre-strict
 
@@ -12,7 +13,7 @@ from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.api.buck_result import BuckException, BuckResult
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
-from buck2.tests.e2e_util.helper.golden import golden
+from buck2.tests.e2e_util.helper.golden import golden, sanitize_hashes
 
 
 @buck_test()
@@ -77,7 +78,7 @@ async def test_select_fail(buck: Buck) -> None:
     )
 
     golden(
-        output="\n".join(outputs),
+        output=sanitize_hashes("\n".join(outputs)),
         rel_path="golden/test_select_fail.golden.stderr",
     )
 
@@ -191,6 +192,6 @@ async def test_select_incompatible(buck: Buck) -> None:
     )
 
     golden(
-        output="\n".join(outputs),
+        output=sanitize_hashes("\n".join(outputs)),
         rel_path="golden/test_select_incompatible.golden.stderr",
     )

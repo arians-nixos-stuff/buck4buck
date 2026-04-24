@@ -1,7 +1,7 @@
 # This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
 
 $ buck cquery root//:incompat_foo -v0 --target-platforms=//:platform1
-root//:incompat_foo (root//:platform1#c5a711e011a6e011)
+root//:incompat_foo (root//:platform1#<HASH>)
 
 $ buck cquery root//:incompat_foo -v0 --target-platforms=//:platform2
 
@@ -96,12 +96,12 @@ Caused by:
     4: Expected `str`, but got `SelectIncompatible (repr: "bad use")`
 
 $ buck cquery root//:depends_on_incompat -v0 --target-platforms=//:platform1
-root//:depends_on_incompat (root//:platform1#c5a711e011a6e011)
+root//:depends_on_incompat (root//:platform1#<HASH>)
 
 $ buck cquery root//:depends_on_incompat --console=none -v0 --target-platforms=//:platform2
 Command failed: 
 Upgraded warning to failure via $BUCK2_HARD_ERROR
 
 Caused by:
-    root//:depends_on_incompat (root//:platform2#3433942168d9b4cf) does not pass compatibility check (will be error in future) because its transitive dep root//:incompat_foo
+    root//:depends_on_incompat (root//:platform2#<HASH>) does not pass compatibility check (will be error in future) because its transitive dep root//:incompat_foo
         is incompatible: select resolved to select_incompatible(): not supported on constraint2

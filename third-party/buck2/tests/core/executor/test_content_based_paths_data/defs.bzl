@@ -390,7 +390,6 @@ def _use_projection_with_content_based_path_impl(ctx):
             "with open(sys.argv[3], 'w') as f:",
             "  f.write('hello projection2')",
         ],
-        has_content_based_path = False,
     )
 
     out = ctx.actions.declare_output("out", has_content_based_path = True)
@@ -533,7 +532,6 @@ def _argsfile_with_incorrectly_declared_output_impl(ctx):
             cmd_args(out, format = "with open('{}', 'w') as f:"),
             "  f.write('blah')",
         ],
-        has_content_based_path = False,
     )
 
     args = cmd_args(["fbpython", script], hidden = [out.as_output()])

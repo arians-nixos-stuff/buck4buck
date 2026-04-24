@@ -144,6 +144,8 @@ enum ErrorTag {
   MATERIALIZATION_CANCELLED = 2600;
   // Could not find buck project root
   NO_BUCK_ROOT = 27;
+  // Project root directory no longer exists on disk
+  MISSING_PROJECT_ROOT = 2700;
 
   // Functionality not implemented in Buck2
   UNIMPLEMENTED = 29;

@@ -212,6 +212,7 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::IoStaleNfsHandle => rank!(environment),
         ErrorTag::InvalidBuckOut => rank!(environment),
         ErrorTag::BuckdExeDeleted => rank!(environment),
+        ErrorTag::MissingProjectRoot => rank!(environment),
 
         // Tier 0 errors
         ErrorTag::ServerJemallocAssert => rank!(tier0),

@@ -22,7 +22,6 @@ use buck2_core::fs::project::ProjectRoot;
 #[cfg(fbcode_build)]
 use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
-#[cfg(fbcode_build)]
 use buck2_error::ErrorTag;
 use buck2_error::buck2_error;
 use buck2_hash::StdBuckHashMap;
@@ -74,6 +73,15 @@ impl dyn FileWatcher {
         cells: CellResolver,
         ignore_specs: StdBuckHashMap<CellName, IgnoreSet>,
     ) -> buck2_error::Result<Arc<dyn FileWatcher>> {
+        if !project_root.root().as_path().exists() {
+            return Err(buck2_error!(
+                ErrorTag::MissingProjectRoot,
+                "Project root `{}` does not exist. \
+                 The directory may have been removed.",
+                project_root.root()
+            ));
+        }
+
         #[cfg(fbcode_build)]
         let default = if detect_eden::is_eden(project_root.root().to_path_buf())? {
             "edenfs"

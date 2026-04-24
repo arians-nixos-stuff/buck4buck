@@ -210,6 +210,7 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::IoInputOutputError => rank!(environment),
         ErrorTag::IoBadAddress => rank!(environment),
         ErrorTag::IoStaleNfsHandle => rank!(environment),
+        ErrorTag::InvalidBuckOut => rank!(environment),
 
         // Tier 0 errors
         ErrorTag::ServerJemallocAssert => rank!(tier0),

@@ -27,6 +27,9 @@ use buck2_common::memory;
 use buck2_core::buck2_env;
 use buck2_core::logging::LogConfigurationReloadHandle;
 use buck2_error::BuckErrorContext;
+use buck2_error::ErrorTag;
+#[cfg(windows)]
+use buck2_error::buck2_error;
 use buck2_error::conversion::clap::buck_error_clap_parser;
 use buck2_events::daemon_id::DaemonId;
 use buck2_events::daemon_id::set_daemon_id_for_panics;
@@ -170,7 +173,17 @@ fn terminate_on_panic() {
 
 fn verify_buck_out_dir(paths: &InvocationPaths) -> buck2_error::Result<()> {
     let path = paths.buck_out_path();
-    fs_util::create_dir_all(path.clone())?;
+
+    fs_util::create_dir_all(path.clone()).map_err(|e| {
+        e.tag([ErrorTag::InvalidBuckOut]).context(format!(
+            "Failed to create buck-out directory `{}`. \
+             The path or a parent directory may be on a stale mount, \
+             be a broken symlink, a file, or the project root may no longer be \
+             accessible. \
+             Try running `buck2 kill` and re-run your command.",
+            path,
+        ))
+    })?;
 
     const CACHEDIR_TAG_CONTENTS: &str = r#"Signature: 8a477f597d28d172789f06886806bc55
 # This file is a cache directory tag created by Buck2.
@@ -567,8 +580,8 @@ impl DaemonCommand {
             let stdout_fd = libc::open_osfhandle(stdout.as_raw_handle() as isize, libc::O_RDWR);
             let stderr_fd = libc::open_osfhandle(stderr.as_raw_handle() as isize, libc::O_RDWR);
             if stdout_fd == -1 || stderr_fd == -1 {
-                return Err(buck2_error::buck2_error!(
-                    buck2_error::ErrorTag::DaemonRedirect,
+                return Err(buck2_error!(
+                    ErrorTag::DaemonRedirect,
                     "Can't get file descriptors for output files",
                 ));
             }
@@ -576,8 +589,8 @@ impl DaemonCommand {
             let stdout_exit_code = libc::dup2(stdout_fd, 1);
             let stderr_exit_code = libc::dup2(stderr_fd, 2);
             if stdout_exit_code == -1 || stderr_exit_code == -1 {
-                return Err(buck2_error::buck2_error!(
-                    buck2_error::ErrorTag::DaemonRedirect,
+                return Err(buck2_error!(
+                    ErrorTag::DaemonRedirect,
                     "Failed to redirect daemon output"
                 ));
             }
@@ -599,8 +612,8 @@ impl DaemonCommand {
     #[cfg(windows)]
     /// Restart current process in detached mode with '--dont-daemonize' flag.
     fn daemonize(_stdout: File, _stderr: File) -> buck2_error::Result<()> {
-        Err(buck2_error::buck2_error!(
-            buck2_error::ErrorTag::WindowsUnsupported,
+        Err(buck2_error!(
+            ErrorTag::WindowsUnsupported,
             "Cannot daemonize on Windows"
         ))
     }

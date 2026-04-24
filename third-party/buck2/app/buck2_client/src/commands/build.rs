@@ -299,7 +299,37 @@ impl StreamingCommand for BuildCommand {
         };
 
         let console = self.common_opts.console_opts.final_console();
-        print_buck_ui_and_rating(&console, ctx, &self.common_opts.console_opts)?;
+        // Re-print Buck UI / Build ID here only if superconsole was actually active,
+        // because superconsole's live area (which showed it during the build) clears
+        // on exit. If simple console handled the build, it already printed the URL
+        // at command start (simpleconsole.rs) and that line stays in scrollback.
+        // `maybe_superconsole()` covers user opt-in (`Super`/`Auto`); `is_tty()`
+        // mirrors the same TTY check `Auto` uses to pick superconsole over the
+        // simple-console fallback (see common/ui.rs `final_console` and
+        // `get_console_with_root`).
+        if self
+            .common_opts
+            .console_opts
+            .console_type
+            .maybe_superconsole()
+            && console.is_tty()
+        {
+            if cfg!(fbcode_build) {
+                // ?rbs (rate build speed) triggers a modal in Buck UI prompting
+                // the user to rate their build speed experience.
+                let mut rate_build_speed_suffix = "";
+                if !console.supports_hyperlinks() {
+                    console.print_stderr("\u{2B50} Rate this build speed, follow this link:")?;
+                    rate_build_speed_suffix = "?rbs";
+                }
+                console.print_stderr(&format!(
+                    "Buck UI: https://www.internalfb.com/buck2/{}{}",
+                    ctx.trace_id, rate_build_speed_suffix
+                ))?;
+            } else {
+                console.print_stderr(&format!("Build ID: {}", ctx.trace_id))?;
+            }
+        }
 
         if success {
             if self.patterns.is_empty() {
@@ -384,48 +414,12 @@ pub(crate) fn print_build_succeeded(
     extra: Option<&str>,
 ) -> buck2_error::Result<()> {
     if ctx.verbosity.print_success_message() {
+        #[cfg(fbcode_build)]
+        if console.supports_hyperlinks() {
+            print_build_rating(console, ctx)?;
+        }
         console.print_success_no_newline("BUILD SUCCEEDED")?;
         console.print_stderr(extra.unwrap_or_default())?;
-    }
-    Ok(())
-}
-
-/// Re-prints the Buck UI URL / Build ID at command end, plus the build-speed
-/// rating prompt where supported. Safe to call from any streaming command
-/// (build, run, test, install) so the sentiment survey reaches all of them.
-///
-/// Re-printing is gated on `maybe_superconsole() && is_tty()` because
-/// superconsole's live area (which showed the URL during the command) clears
-/// on exit; simple console already printed the URL at command start and it
-/// stays in scrollback.
-pub(crate) fn print_buck_ui_and_rating(
-    console: &FinalConsole,
-    ctx: &ClientCommandContext<'_>,
-    console_opts: &CommonConsoleOptions,
-) -> buck2_error::Result<()> {
-    if console_opts.console_type.maybe_superconsole() && console.is_tty() {
-        if cfg!(fbcode_build) {
-            // ?rbs (rate build speed) triggers a modal in Buck UI prompting
-            // the user to rate their build speed experience. Only emitted in
-            // the non-hyperlink branch — hyperlink terminals get the richer
-            // emoji prompt below.
-            let mut rate_build_speed_suffix = "";
-            if !console.supports_hyperlinks() {
-                console.print_stderr("\u{2B50} Rate this build speed, follow this link:")?;
-                rate_build_speed_suffix = "?rbs";
-            }
-            console.print_stderr(&format!(
-                "Buck UI: https://www.internalfb.com/buck2/{}{}",
-                ctx.trace_id, rate_build_speed_suffix
-            ))?;
-        } else {
-            console.print_stderr(&format!("Build ID: {}", ctx.trace_id))?;
-        }
-    }
-
-    #[cfg(fbcode_build)]
-    if console.supports_hyperlinks() {
-        print_build_rating(console, ctx)?;
     }
     Ok(())
 }

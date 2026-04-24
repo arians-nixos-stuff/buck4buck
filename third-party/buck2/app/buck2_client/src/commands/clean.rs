@@ -204,7 +204,7 @@ async fn clean(
     lifecycle_lock: Option<&BuckdLifecycleLock>,
     background: bool,
 ) -> buck2_error::Result<()> {
-    if background {
+    let paths_to_clean = if background {
         let trash_uuid = Uuid::new_v4();
         let trash_target = trash_dir.as_abs_path().join(trash_uuid.to_string());
 
@@ -251,9 +251,7 @@ async fn clean(
             .await?
             .buck_error_context("Failed to spawn clean")?;
         }
-        for path in paths_to_clean {
-            console.print_stderr(&path)?;
-        }
+        paths_to_clean
     } else {
         let mut paths_to_clean = Vec::new();
 
@@ -276,9 +274,14 @@ async fn clean(
             }
         }
 
-        for path in paths_to_clean {
-            console.print_stderr(&path)?;
-        }
+        paths_to_clean
+    };
+
+    if paths_to_clean.is_empty() {
+        console.print_stderr("Nothing to clean.")?;
+    }
+    for path in paths_to_clean {
+        console.print_stderr(&path)?;
     }
 
     Ok(())
@@ -287,6 +290,9 @@ async fn clean(
 fn collect_paths_to_clean(
     buck_out_path: &AbsNormPathBuf,
 ) -> buck2_error::Result<Vec<AbsNormPathBuf>> {
+    if !buck_out_path.exists() {
+        return Ok(vec![]);
+    }
     let mut paths_to_clean = vec![];
     let dir = fs_util::read_dir(buck_out_path).categorize_internal()?;
     for entry in dir {

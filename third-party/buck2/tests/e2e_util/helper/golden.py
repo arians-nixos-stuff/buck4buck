@@ -113,13 +113,13 @@ def golden(*, output: str, rel_path: str) -> None:
 
     if _is_update_invocation():
         Path(path_in_src).parent.mkdir(parents=True, exist_ok=True)
-        with open(path_in_src, "w", encoding="utf-8") as f:
+        with open(path_in_src, "w") as f:
             f.write(output)
         return
 
     assert os.path.exists(path_in_src), f"Golden path `{path_in_src}` must exist"
 
-    with open(path_in_src, "r", encoding="utf-8") as f:
+    with open(path_in_src, "r") as f:
         expected = f.read()
 
     if _remove_ci_labels(expected) != _remove_ci_labels(output):

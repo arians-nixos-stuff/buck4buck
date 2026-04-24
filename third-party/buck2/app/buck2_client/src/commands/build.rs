@@ -315,16 +315,9 @@ impl StreamingCommand for BuildCommand {
             && console.is_tty()
         {
             if cfg!(fbcode_build) {
-                // ?rbs (rate build speed) triggers a modal in Buck UI prompting
-                // the user to rate their build speed experience.
-                let mut rate_build_speed_suffix = "";
-                if !console.supports_hyperlinks() {
-                    console.print_stderr("\u{2B50} Rate this build speed, follow this link:")?;
-                    rate_build_speed_suffix = "?rbs";
-                }
                 console.print_stderr(&format!(
-                    "Buck UI: https://www.internalfb.com/buck2/{}{}",
-                    ctx.trace_id, rate_build_speed_suffix
+                    "Buck UI: https://www.internalfb.com/buck2/{}",
+                    ctx.trace_id
                 ))?;
             } else {
                 console.print_stderr(&format!("Build ID: {}", ctx.trace_id))?;
@@ -415,9 +408,7 @@ pub(crate) fn print_build_succeeded(
 ) -> buck2_error::Result<()> {
     if ctx.verbosity.print_success_message() {
         #[cfg(fbcode_build)]
-        if console.supports_hyperlinks() {
-            print_build_rating(console, ctx)?;
-        }
+        print_build_rating(console, ctx)?;
         console.print_success_no_newline("BUILD SUCCEEDED")?;
         console.print_stderr(extra.unwrap_or_default())?;
     }
@@ -445,7 +436,7 @@ fn print_build_rating(
 
     let trace_id = &ctx.trace_id;
     let rate = "\u{2B50} Rate this build speed:";
-    let url = format!("https://www.internalfb.com/buck2/{}?rbs", trace_id);
+    let url = format!("https://www.internalfb.com/buck2/{}?modal=true", trace_id);
     let good = colored!(Color::Yellow, "Good \u{1f44d}");
     let bad = colored!(Color::Yellow, "Bad \u{1f44e}");
     console.print_stderr(&format!(

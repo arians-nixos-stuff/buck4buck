@@ -56,6 +56,9 @@ enum ValidationSpecError {
 /// `ctx.actions.declare_output(...)` and bound to an action) — source
 /// artifacts are rejected because validations are expected to be derived,
 /// reproducible outputs.
+///
+/// See the [Validations guide](https://buck2.build/docs/rule_authors/validation/)
+/// for the end-to-end story.
 #[derive(
     Debug,
     Trace,

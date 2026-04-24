@@ -20,8 +20,9 @@ unchanged (standard Buck2 caching).
 
 ## Declaring a validation
 
-Return a `ValidationInfo` provider from your rule's `impl`, populated with
-one or more `ValidationSpec` values:
+Return a [`ValidationInfo`](../../api/build/ValidationInfo) provider from your
+rule's `impl`, populated with one or more
+[`ValidationSpec`](../../api/build/ValidationSpec) values:
 
 ```python
 def _my_rule_impl(ctx):
@@ -43,7 +44,8 @@ def _my_rule_impl(ctx):
 
 Constraints:
 
-- Each spec needs a non-empty name, unique within the `ValidationInfo`.
+- Each spec needs a non-empty name, unique within the
+  [`ValidationInfo`](../../api/build/ValidationInfo).
 - `validation_result` must be a build artifact (not a source file).
 - The provider must contain at least one spec.
 
@@ -74,7 +76,8 @@ machine contract, not a log — write logs to stderr or a separate artifact.
 
 ## Required vs optional validations
 
-Pass `optional = True` to a `ValidationSpec` to mark it advisory:
+Pass `optional = True` to a [`ValidationSpec`](../../api/build/ValidationSpec)
+to mark it advisory:
 
 ```python
 ValidationSpec(name = "slow_lint", validation_result = report, optional = True)

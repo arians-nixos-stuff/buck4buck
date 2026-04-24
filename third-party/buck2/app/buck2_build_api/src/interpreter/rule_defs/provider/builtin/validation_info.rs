@@ -77,7 +77,8 @@ enum ValidationInfoError {
 ///     ]
 /// ```
 ///
-/// See `docs/rule_authors/validation.md` for the end-to-end story.
+/// See the [Validations guide](https://buck2.build/docs/rule_authors/validation/)
+/// for the end-to-end story.
 #[internal_provider(validation_info_creator)]
 #[derive(Clone, Debug, Trace, Coerce, Freeze, ProvidesStaticType, Allocative)]
 #[freeze(validator = validate_validation_info, bounds = "V: ValueLike<'freeze>")]

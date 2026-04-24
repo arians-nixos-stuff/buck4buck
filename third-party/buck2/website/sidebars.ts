@@ -229,6 +229,7 @@ export const sidebars: SidebarsConfig = {
         'rule_authors/alias',
         'rule_authors/subdir_glob',
         'rule_authors/local_resources',
+        'rule_authors/validation',
         'rule_authors/package_files',
         isInternal() ? 'rule_authors/client_metadata' : null,
         isInternal() ? 'rule_authors/action_error_handler' : null,

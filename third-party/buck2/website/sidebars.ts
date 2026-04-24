@@ -180,6 +180,7 @@ export const sidebars: SidebarsConfig = {
             'users/build_observability/build_report',
             isInternal() ? 'users/build_observability/observability' : null,
             isInternal() ? 'users/build_observability/scuba' : null,
+            isInternal() ? 'users/build_observability/derived_user_tables' : null,
             isInternal() ? 'users/build_observability/ods' : null,
           ].flatMap(x => x !== null ? [x] : []),
         },

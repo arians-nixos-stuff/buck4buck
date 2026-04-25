@@ -97,6 +97,9 @@ pub struct StarlarkValidationSpecGen<V: ValueLifetimeless> {
     /// Buck2 surfaces three distinct errors if the file does not conform:
     /// invalid JSON, incompatible schema version, or schema mismatch.
     /// Source artifacts are rejected — the result must come from an action.
+    ///
+    /// See [Writing the validator](https://buck2.build/docs/rule_authors/validation/#writing-the-validator)
+    /// in the Validations guide for the full schema reference and examples.
     validation_result: ValueOfUncheckedGeneric<V, ValueIsInputArtifactAnnotation>,
 
     /// If `True`, the validation is skipped by default and only runs when

@@ -123,7 +123,7 @@ pub(crate) enum InstallError {
     /// Errors from external installer process, may represent infra errors or input errors (ex. no device).
     /// Tagging as input errors in the absence of a way for installers to report infra errors.
     #[error(
-        "Installer failed to process file ready request for `{install_id}`. Artifact: `{artifact}` located at `{path}`. Error message: `{err}`\n."
+        "Installer error: {err}\n  Target: `{install_id}`\n  Artifact: `{artifact}` at `{path}`"
     )]
     #[buck2(input)]
     ProcessingFileReadyFailure {
@@ -477,7 +477,7 @@ impl<'a> ConnectedInstaller<'a> {
         }
 
         self.install_result(
-            send_files_result.buck_error_context("Failed to send artifacts to installer"),
+            send_files_result.buck_error_context("Interaction with installer failed"),
         )
     }
 

@@ -95,7 +95,7 @@ if linux_only():
             buck.install(
                 "fbcode//buck2/tests/targets/rules/install:installer_server_sends_error",
             ),
-            stderr_regex=r"Failed to send artifacts to installer",
+            stderr_regex=r"Interaction with installer failed",
         )
         record = res.invocation_record()
         errors = record["errors"]

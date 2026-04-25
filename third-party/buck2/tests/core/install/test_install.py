@@ -111,7 +111,7 @@ async def test_artifact_fails_to_install(buck: Buck) -> None:
         buck.install(
             "root//:installer_server_sends_error",
         ),
-        stderr_regex=r"Failed to send artifacts to installer",
+        stderr_regex=r"Interaction with installer failed",
     )
     record = res.invocation_record()
     errors = record["errors"]

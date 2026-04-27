@@ -209,3 +209,62 @@ shared_dir_dep_file = rule(
         "used_input_contents": attrs.string(),
     },
 )
+
+def _dep_file_with_preceding_actions_impl(ctx):
+    num_preceding = int(read_config("test", "num_preceding_actions", "0"))
+
+    dummy_script = ctx.actions.write(
+        "dummy_script.py",
+        [
+            "import sys",
+            "with open(sys.argv[1], 'w') as f:",
+            "  f.write('dummy')",
+        ],
+    )
+
+    for i in range(num_preceding):
+        dummy_out = ctx.actions.declare_output("dummy_{}".format(i))
+        ctx.actions.run(
+            cmd_args(["fbpython", dummy_script, dummy_out.as_output()]),
+            category = "dummy",
+            identifier = str(i),
+        )
+
+    used_input = ctx.actions.write("used_input", "used_content")
+    unused_input = ctx.actions.write("unused_input", "unused_content")
+
+    dep_file = ctx.actions.declare_output("depfile")
+    out = ctx.actions.declare_output("out")
+
+    script = ctx.actions.write(
+        "script.py",
+        [
+            "import sys",
+            "with open(sys.argv[1], 'w') as f:",
+            "  f.write('output')",
+            "with open(sys.argv[2], 'w') as dep_file:",
+            "  for arg in sys.argv[3:]:",
+            "    dep_file.write('{}\\n'.format(arg))",
+        ],
+    )
+
+    tag = ctx.actions.artifact_tag()
+    args = cmd_args(
+        [
+            "fbpython",
+            script,
+            out.as_output(),
+            tag.tag_artifacts(dep_file.as_output()),
+            tag.tag_artifacts(used_input),
+        ],
+        hidden = tag.tag_artifacts(cmd_args([unused_input])),
+    )
+
+    ctx.actions.run(args, category = "test_run", dep_files = {"used": tag})
+
+    return [DefaultInfo(default_output = out)]
+
+dep_file_with_preceding_actions = rule(
+    impl = _dep_file_with_preceding_actions_impl,
+    attrs = {},
+)

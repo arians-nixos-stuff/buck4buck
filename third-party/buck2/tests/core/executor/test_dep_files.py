@@ -410,6 +410,47 @@ async def test_dep_file_hit_identical_action(buck: Buck) -> None:
     )
 
 
+# Reproduces T237527198: changing ActionKey (by registering additional actions
+# before the dep-file action during analysis) should not cause a dep-file cache
+# miss when the dep-file action itself is identical.
+@buck_test(
+    setup_eden=False,
+    data_dir="dep_files",
+    skip_for_os=["windows"],
+)
+async def test_dep_file_hit_with_action_key_change(buck: Buck) -> None:
+    await buck.build(
+        "app:dep_file_with_preceding_actions",
+        "--local-only",
+        "--no-remote-cache",
+        "-c",
+        "test.num_preceding_actions=0",
+    )
+    await check_execution_kind(
+        buck,
+        [ACTION_EXECUTION_KIND_LOCAL],
+        ignored=[ACTION_EXECUTION_KIND_SIMPLE],
+    )
+
+    # Add a preceding action, shifting the dep-file action's ActionKey index.
+    # The dep-file action itself (command, inputs, outputs) is identical.
+    await buck.build(
+        "app:dep_file_with_preceding_actions",
+        "--local-only",
+        "--no-remote-cache",
+        "-c",
+        "test.num_preceding_actions=1",
+    )
+    # TODO(T237527198): The dep-file action should get a LOCAL_ACTION_CACHE hit
+    # here since it is identical, but the ActionKey index shift causes the dep
+    # file cache to report "Dep files declaration has changed".
+    await check_execution_kind(
+        buck,
+        [ACTION_EXECUTION_KIND_LOCAL],
+        ignored=[ACTION_EXECUTION_KIND_SIMPLE],
+    )
+
+
 # Flaky because of watchman on mac (and maybe windows)
 # Skipping on windows due to gcc dependency
 # This test tombstones the hash of the dep file produced by this action.

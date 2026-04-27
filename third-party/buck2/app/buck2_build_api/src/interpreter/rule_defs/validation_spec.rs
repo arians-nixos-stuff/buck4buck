@@ -192,8 +192,33 @@ fn validation_spec_methods(builder: &mut MethodsBuilder) {
     }
 
     #[starlark(attribute)]
-    /// Build artifact whose JSON contents Buck2 parses to decide pass/fail.
-    /// See `ValidationSpec` for the expected schema.
+    /// Build artifact produced by the validator. After the producing action
+    /// runs, Buck2 reads the file as UTF-8 JSON and uses its contents to
+    /// decide pass/fail.
+    ///
+    /// Expected shape:
+    ///
+    /// ```json
+    /// {
+    ///   "version": 1,
+    ///   "data": {
+    ///     "status": "success",
+    ///     "message": "optional human-readable detail"
+    ///   }
+    /// }
+    /// ```
+    ///
+    /// - `version` (int, required): schema version. Currently `1`.
+    /// - `data.status` (string, required): `"success"` or `"failure"`.
+    /// - `data.message` (string, optional): shown to the user; supply on
+    ///   failure so the diagnostic is actionable.
+    ///
+    /// Buck2 surfaces three distinct errors if the file does not conform:
+    /// invalid JSON, incompatible schema version, or schema mismatch. Source
+    /// artifacts are rejected — the result must come from an action.
+    ///
+    /// See [Writing the validator](https://buck2.build/docs/rule_authors/validation/#writing-the-validator)
+    /// in the Validations guide for end-to-end examples.
     fn validation_result<'v>(
         this: &'v StarlarkValidationSpec,
     ) -> starlark::Result<StarlarkArtifact> {

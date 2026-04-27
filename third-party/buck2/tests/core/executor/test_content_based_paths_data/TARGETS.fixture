@@ -14,6 +14,7 @@ load(
     "incremental_action",
     "non_content_based_exec_dep",
     "not_eligible_for_dedupe",
+    "pass_cbp_promise_to_anon_target",
     "resolve_promise_artifact",
     "run_with_anon_non_cbp_dep",
     "run_with_content_based_path",
@@ -176,6 +177,10 @@ resolve_promise_artifact(
     name = "resolve_promise_artifact",
     artifact_has_content_based_path = read_config("test", "artifact_has_content_based_path", "false") == "true",
     assert_promised_artifact_has_content_based_path = read_config("test", "assert_promised_artifact_has_content_based_path", "false") == "true",
+)
+
+pass_cbp_promise_to_anon_target(
+    name = "pass_cbp_promise_to_anon_target",
 )
 
 anon_non_cbp_wrapper(

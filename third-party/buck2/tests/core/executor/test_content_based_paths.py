@@ -543,6 +543,18 @@ async def test_resolve_promise_artifact(
 
 
 @buck_test()
+async def test_pass_cbp_promise_artifact_to_anon_target(
+    buck: Buck,
+) -> None:
+    await expect_failure(
+        buck.build(
+            "root//:pass_cbp_promise_to_anon_target",
+        ),
+        stderr_regex="Artifact promise resolved to artifact that uses content based paths",
+    )
+
+
+@buck_test()
 async def test_run_with_anon_non_cbp_dep_eligible_for_dedupe(buck: Buck) -> None:
     await buck.build(
         "root//:run_with_anon_non_cbp_dep",

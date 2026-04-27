@@ -604,6 +604,37 @@ resolve_promise_artifact = rule(impl = _resolve_promise_artifact_impl, attrs = {
     "assert_promised_artifact_has_content_based_path": attrs.bool(),
 })
 
+AnonConsumerInfo = provider(fields = ["out"])
+
+def _anon_consumer_impl(ctx: AnalysisContext) -> list[Provider]:
+    out = ctx.actions.write("consumer_out", ctx.attrs.input)
+    return [DefaultInfo(), AnonConsumerInfo(out = out)]
+
+_anon_consumer = anon_rule(
+    impl = _anon_consumer_impl,
+    attrs = {
+        "input": attrs.source(),
+    },
+    artifact_promise_mappings = {
+        "out": lambda x: x[AnonConsumerInfo].out,
+    },
+)
+
+def _pass_cbp_promise_to_anon_target_impl(ctx: AnalysisContext) -> list[Provider]:
+    producer = ctx.actions.anon_target(_anon, {"has_content_based_path": True})
+    hello_artifact = producer.artifact("hello")
+    hello_artifact = ctx.actions.assert_has_content_based_path(hello_artifact)
+
+    consumer = ctx.actions.anon_target(_anon_consumer, {"input": hello_artifact})
+    consumer_out = consumer.artifact("out")
+
+    return [DefaultInfo(default_output = consumer_out)]
+
+pass_cbp_promise_to_anon_target = rule(
+    impl = _pass_cbp_promise_to_anon_target_impl,
+    attrs = {},
+)
+
 AnonNonCbpInfo = provider(fields = ["artifact"])
 
 def _anon_non_cbp_impl(ctx: AnalysisContext) -> list[Provider]:

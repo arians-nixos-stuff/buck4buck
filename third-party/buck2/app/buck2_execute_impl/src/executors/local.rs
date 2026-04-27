@@ -1300,6 +1300,10 @@ impl PreparedCommandExecutor for LocalExecutor {
     fn is_local_execution_possible(&self, _executor_preference: ExecutorPreference) -> bool {
         true
     }
+
+    fn is_full_hybrid_enabled(&self) -> bool {
+        false
+    }
 }
 
 /// Either a str or a OsStr, so that we can turn it back into a String without having to check for

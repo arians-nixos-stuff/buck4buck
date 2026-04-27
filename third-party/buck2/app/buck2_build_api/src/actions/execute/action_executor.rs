@@ -367,6 +367,10 @@ impl BuckActionExecutor {
         self.command_executor
             .is_local_execution_possible(executor_preference)
     }
+
+    pub(crate) fn is_full_hybrid_enabled(&self) -> bool {
+        self.command_executor.is_full_hybrid_enabled()
+    }
 }
 
 struct BuckActionExecutionContext<'a> {

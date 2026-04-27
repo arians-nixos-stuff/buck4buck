@@ -11,7 +11,7 @@
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
-from buck2.tests.e2e_util.helper.utils import filter_events
+from buck2.tests.e2e_util.helper.utils import filter_events, random_string
 
 
 async def _registered_dispatched_materialized(
@@ -93,3 +93,96 @@ async def test_content_based_path_eager_materialization(buck: Buck) -> None:
     assert len(registered) == 1
     assert len(eagerly_dispatched) == 2
     assert len(materialized) == 2
+
+
+async def _get_registered_paths(buck: Buck) -> set[str]:
+    """Returns the set of paths registered for eager materialization."""
+    register_events = await filter_events(
+        buck,
+        "Event",
+        "data",
+        "Instant",
+        "data",
+        "MaterializerCommand",
+        "data",
+        "RegisterEagerPaths",
+    )
+    return {p for ev in register_events for p in ev["paths"]}
+
+
+@buck_test(data_dir="hybrid_modes")
+async def test_eager_materialization_default_no_eager(buck: Buck) -> None:
+    """Default config (limited hybrid) + default preference: should NOT eagerly materialize."""
+    await buck.build(
+        "//:consumer_default",
+        "-c",
+        f"test.cache_buster={random_string()}",
+    )
+    registered = await _get_registered_paths(buck)
+    assert len(registered) == 0, (
+        "Expected no eager materialization for default config + default preference"
+    )
+
+
+@buck_test(data_dir="hybrid_modes")
+async def test_eager_materialization_full_hybrid_prefer_local(buck: Buck) -> None:
+    """Full hybrid + prefer_local: should eagerly materialize."""
+    await buck.build(
+        "//:consumer_prefer_local",
+        "-c",
+        f"test.cache_buster={random_string()}",
+        "-c",
+        "build.use_limited_hybrid=false",
+    )
+    registered = await _get_registered_paths(buck)
+    assert len(registered) > 0, (
+        "Expected eager materialization for full hybrid + prefer_local"
+    )
+
+
+@buck_test(data_dir="hybrid_modes")
+async def test_eager_materialization_full_hybrid_default_pref(buck: Buck) -> None:
+    """Full hybrid + default preference: should eagerly materialize."""
+    await buck.build(
+        "//:consumer_default",
+        "-c",
+        f"test.cache_buster={random_string()}",
+        "-c",
+        "build.use_limited_hybrid=false",
+    )
+    registered = await _get_registered_paths(buck)
+    assert len(registered) > 0, (
+        "Expected eager materialization for full hybrid + default preference"
+    )
+
+
+@buck_test(data_dir="hybrid_modes")
+async def test_eager_materialization_limited_prefer_local(buck: Buck) -> None:
+    """Limited hybrid + prefer_local: should eagerly materialize."""
+    await buck.build(
+        "//:consumer_prefer_local",
+        "-c",
+        f"test.cache_buster={random_string()}",
+        "-c",
+        "build.use_limited_hybrid=true",
+    )
+    registered = await _get_registered_paths(buck)
+    assert len(registered) > 0, (
+        "Expected eager materialization for limited hybrid + prefer_local"
+    )
+
+
+@buck_test(data_dir="hybrid_modes")
+async def test_eager_materialization_limited_default_pref(buck: Buck) -> None:
+    """Limited hybrid + default preference: should NOT eagerly materialize."""
+    await buck.build(
+        "//:consumer_default",
+        "-c",
+        f"test.cache_buster={random_string()}",
+        "-c",
+        "build.use_limited_hybrid=true",
+    )
+    registered = await _get_registered_paths(buck)
+    assert len(registered) == 0, (
+        "Expected no eager materialization for limited hybrid + default preference"
+    )

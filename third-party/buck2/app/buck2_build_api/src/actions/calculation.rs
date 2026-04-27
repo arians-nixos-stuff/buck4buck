@@ -124,10 +124,11 @@ async fn build_action_no_redirect(
 
     let _eager_guard = if executor.materializer().is_eager_materialization_enabled()
         && action.eager_materialization_enabled()
-        && action
-            .executor_preference()
-            .is_some_and(|pref| pref.prefers_local() && executor.is_local_execution_possible(pref))
-    {
+        && action.executor_preference().is_some_and(|pref| {
+            !pref.prefers_remote()
+                && executor.is_local_execution_possible(pref)
+                && (pref.prefers_local() || executor.is_full_hybrid_enabled())
+        }) {
         let artifact_fs = ctx.get_artifact_fs().await?;
         let eager_paths = collect_eager_paths(ctx, &inputs, &artifact_fs).await?;
 

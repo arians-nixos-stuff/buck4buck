@@ -24,17 +24,17 @@ def _write_file_impl(ctx):
         declared = ctx.actions.declare_output(ctx.attrs.out, has_content_based_path = False)
         output = ctx.actions.write(declared.as_output(), ctx.attrs.content)
     elif ctx.attrs.name == "declares_output":
-        output = ctx.actions.write(ctx.attrs.out, ctx.attrs.content)
+        output = ctx.actions.write(ctx.attrs.out, ctx.attrs.content, has_content_based_path = False)
     elif ctx.attrs.name == "is_executable":
-        output = ctx.actions.write(ctx.attrs.out, ctx.attrs.content, is_executable = True)
+        output = ctx.actions.write(ctx.attrs.out, ctx.attrs.content, is_executable = True, has_content_based_path = False)
     elif ctx.attrs.name == "writes_array_of_commands":
         cmd = [ctx.attrs.dep[FooInfo].out, ctx.attrs.content]
-        output = ctx.actions.write(ctx.attrs.out, cmd)
+        output = ctx.actions.write(ctx.attrs.out, cmd, has_content_based_path = False)
     elif ctx.attrs.name == "writes_command_lines":
         cmd = [ctx.attrs.dep[FooInfo].out, ctx.attrs.content]
-        output = ctx.actions.write(ctx.attrs.out, cmd_args(cmd))
+        output = ctx.actions.write(ctx.attrs.out, cmd_args(cmd), has_content_based_path = False)
     elif ctx.attrs.name == "writes_frozen_command_lines":
-        output = ctx.actions.write(ctx.attrs.out, ctx.attrs.dep[FooInfo].args)
+        output = ctx.actions.write(ctx.attrs.out, ctx.attrs.dep[FooInfo].args, has_content_based_path = False)
     elif ctx.attrs.name == "with_inputs_and_copy":
         output1 = ctx.actions.write("intermediate.txt", ctx.attrs.content, has_content_based_path = False)
         output2 = ctx.actions.declare_output(ctx.attrs.out, has_content_based_path = False)
@@ -56,12 +56,12 @@ def _write_file_impl(ctx):
         ctx.actions.run(cmd, category = "test")
         return [DefaultInfo(default_output = output2)]
     elif ctx.attrs.name == "fails_on_invalid_contents":
-        output = ctx.actions.write(ctx.attrs.out, {})
+        output = ctx.actions.write(ctx.attrs.out, {}, has_content_based_path = False)
     elif ctx.attrs.name == "fails_on_invalid_output":
         output = ctx.actions.write([], ctx.attrs.content)
     elif ctx.attrs.name == "writes_absolute":
         content = [ctx.attrs.dep[FooInfo].out]
-        output = ctx.actions.write(ctx.attrs.out, content, absolute = True)
+        output = ctx.actions.write(ctx.attrs.out, content, absolute = True, has_content_based_path = False)
     else:
         fail("invalid test")
     return [DefaultInfo(default_output = output)]

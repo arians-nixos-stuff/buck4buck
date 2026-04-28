@@ -607,7 +607,7 @@ resolve_promise_artifact = rule(impl = _resolve_promise_artifact_impl, attrs = {
 AnonConsumerInfo = provider(fields = ["out"])
 
 def _anon_consumer_impl(ctx: AnalysisContext) -> list[Provider]:
-    out = ctx.actions.write("consumer_out", ctx.attrs.input)
+    out = ctx.actions.write("consumer_out", ctx.attrs.input, has_content_based_path = False)
     return [DefaultInfo(), AnonConsumerInfo(out = out)]
 
 _anon_consumer = anon_rule(

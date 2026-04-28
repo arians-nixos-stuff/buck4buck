@@ -15,6 +15,7 @@ def _action_with_unbound_artifact_impl(ctx):
             "with open('sys.argv[1]', 'w') as f:",
             "  f.write('sys.argv[2]')",
         ],
+        has_content_based_path = False,
     )
 
     args = cmd_args(["fbpython", script, out.as_output(), out])
@@ -46,6 +47,7 @@ def _action_with_unbound_artifact_inside_tset_impl(ctx):
             "with open('sys.argv[1]', 'w') as f:",
             "  f.write('sys.argv[2]')",
         ],
+        has_content_based_path = False,
     )
 
     args = cmd_args(["fbpython", script, out.as_output(), tset.project_as_args("identity")])

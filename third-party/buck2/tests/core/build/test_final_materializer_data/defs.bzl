@@ -84,6 +84,7 @@ def _artifact_generator_impl(ctx: AnalysisContext) -> list[Provider]:
         art = ctx.actions.write(
             "artifact_{}.txt".format(i),
             "content_{}_{}".format(ctx.label.name, i),
+            has_content_based_path = False,
         )
         artifacts.append(art)
 

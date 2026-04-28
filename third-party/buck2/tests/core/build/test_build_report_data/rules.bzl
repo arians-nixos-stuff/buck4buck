@@ -8,7 +8,7 @@
 
 def _touch_file_impl(ctx):
     if ctx.attrs.out != None:
-        out = ctx.actions.write(ctx.attrs.out, "")
+        out = ctx.actions.write(ctx.attrs.out, "", has_content_based_path = False)
         default_outputs = [out]
         named_outputs = {}
     elif ctx.attrs.outs != None:
@@ -16,7 +16,7 @@ def _touch_file_impl(ctx):
         named_outputs = {}
         default_out_paths = ctx.attrs.default_outs or []
         for (name, path) in ctx.attrs.outs.items():
-            artifact = ctx.actions.write(path, "")
+            artifact = ctx.actions.write(path, "", has_content_based_path = False)
             if path in default_out_paths:
                 default_outputs.append(artifact)
             named_outputs[name] = artifact

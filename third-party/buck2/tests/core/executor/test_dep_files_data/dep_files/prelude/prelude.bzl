@@ -220,6 +220,7 @@ def _dep_file_with_preceding_actions_impl(ctx):
             "with open(sys.argv[1], 'w') as f:",
             "  f.write('dummy')",
         ],
+        has_content_based_path = False,
     )
 
     for i in range(num_preceding):
@@ -230,8 +231,8 @@ def _dep_file_with_preceding_actions_impl(ctx):
             identifier = str(i),
         )
 
-    used_input = ctx.actions.write("used_input", "used_content")
-    unused_input = ctx.actions.write("unused_input", "unused_content")
+    used_input = ctx.actions.write("used_input", "used_content", has_content_based_path = False)
+    unused_input = ctx.actions.write("unused_input", "unused_content", has_content_based_path = False)
 
     dep_file = ctx.actions.declare_output("depfile")
     out = ctx.actions.declare_output("out")
@@ -246,6 +247,7 @@ def _dep_file_with_preceding_actions_impl(ctx):
             "  for arg in sys.argv[3:]:",
             "    dep_file.write('{}\\n'.format(arg))",
         ],
+        has_content_based_path = False,
     )
 
     tag = ctx.actions.artifact_tag()

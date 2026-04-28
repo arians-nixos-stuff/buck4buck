@@ -17,6 +17,7 @@ def _simple(ctx):
             "with open(sys.argv[2], 'w') as f:",
             "  f.write(content)",
         ],
+        has_content_based_path = False,
     )
     ctx.actions.run(
         cmd_args(["fbpython", run, ctx.attrs.input, output.as_output()]),

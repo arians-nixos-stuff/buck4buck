@@ -9,7 +9,7 @@
 FooInfo = provider(fields = ["name", "env"])
 
 def _impl_rule_with_output(ctx):
-    out = ctx.actions.write(ctx.attrs.name, ctx.attrs.content)
+    out = ctx.actions.write(ctx.attrs.name, ctx.attrs.content, has_content_based_path = False)
     return [DefaultInfo(default_output = out)]
 
 rule_with_output = rule(

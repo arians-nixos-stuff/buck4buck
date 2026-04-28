@@ -379,6 +379,7 @@ pub struct StatefulSuperConsoleImpl {
     super_console: SuperConsole,
     verbosity: Verbosity,
     games_overlay: GamesOverlay,
+    shown_interactive_console_message: bool,
 }
 
 pub struct SuperConsoleState {
@@ -663,6 +664,7 @@ impl StatefulSuperConsole {
             super_console,
             verbosity,
             games_overlay: GamesOverlay::new(),
+            shown_interactive_console_message: false,
         }))
     }
 
@@ -1194,7 +1196,15 @@ impl StatefulSuperConsoleImpl {
                     .await?
                 }
                 SuperConsoleToggle::Char(_) => {
-                    // Unrecognized key (not 'g', handled above) — ignore.
+                    if !self.shown_interactive_console_message {
+                        self.shown_interactive_console_message = true;
+                        self.handle_stderr(&format!(
+                            "Buck2 has an interactive console; input is consumed. \
+                             Press `h` for help or set {}=true to disable.",
+                            BUCK_NO_INTERACTIVE_CONSOLE
+                        ))
+                        .await?;
+                    }
                 }
             },
             None => {}

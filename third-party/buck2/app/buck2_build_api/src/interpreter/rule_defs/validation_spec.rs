@@ -213,6 +213,13 @@ fn validation_spec_methods(builder: &mut MethodsBuilder) {
     /// - `data.message` (string, optional): shown to the user; supply on
     ///   failure so the diagnostic is actionable.
     ///
+    /// Additional fields outside the required ones are tolerated and ignored
+    /// by Buck2 — both at the top level (alongside `version` / `data`) and
+    /// inside `data` (alongside `status` / `message`). This is a deliberate
+    /// extension point: attach debug or diagnostic info (e.g.
+    /// `data.duration_ms`, `data.tool_version`, links to a build dashboard)
+    /// that you want carried with the verdict.
+    ///
     /// Buck2 surfaces three distinct errors if the file does not conform:
     /// invalid JSON, incompatible schema version, or schema mismatch. Source
     /// artifacts are rejected — the result must come from an action.

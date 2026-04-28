@@ -71,8 +71,18 @@ expected schema works. The schema:
 | `data.message` | string | no       | Shown to the user; supply on failure.       |
 
 Buck2 reports three distinct errors if the file is malformed: invalid JSON,
-incompatible version, or schema mismatch. Treat the JSON file as a stable
-machine contract, not a log — write logs to stderr or a separate artifact.
+incompatible version, or schema mismatch.
+
+Additional fields outside the required ones are tolerated and ignored by
+Buck2 — both at the top level (alongside `version` / `data`) and inside
+`data` (alongside `status` / `message`). This is a deliberate extension
+point: attach structured debug or diagnostic info (timings, tool versions,
+dashboard URLs, anything you want to keep with the verdict) and Buck2
+will pass it through unread.
+
+The required fields still define the machine contract — keep them stable.
+Unstructured logs belong in stderr or a separate artifact, not in this
+file.
 
 ## Required vs optional validations
 

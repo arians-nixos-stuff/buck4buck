@@ -73,6 +73,7 @@ def _download_toolchain(ctx: AnalysisContext):
         script_content,
         is_executable = True,
         allow_args = True,
+        has_content_based_path = False,
     )
 
     cmd = cmd_args(

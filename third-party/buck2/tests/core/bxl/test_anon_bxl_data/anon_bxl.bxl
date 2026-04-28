@@ -18,9 +18,9 @@ Info = provider(fields = {
 
 def _my_anon_impl(bxl_ctx: bxl.Context, attrs: struct) -> list[Provider]:
     action = bxl_ctx.bxl_actions().actions
-    out = action.write("res.txt", "foo_bar")
-    hello = action.write("hello.txt", "hello" + str(attrs.x))
-    world = action.write("world.txt", "world" + str(attrs.x))
+    out = action.write("res.txt", "foo_bar", has_content_based_path = False)
+    hello = action.write("hello.txt", "hello" + str(attrs.x), has_content_based_path = False)
+    world = action.write("world.txt", "world" + str(attrs.x), has_content_based_path = False)
     info = Info(
         x = attrs.x,
         hello = hello,
@@ -119,7 +119,7 @@ eval_lost_of_anon_bxl = bxl_main(
 
 def _anon_with_arg_impl(bxl_ctx: bxl.Context, attrs: struct) -> list[Provider]:
     action = bxl_ctx.bxl_actions().actions
-    out, _ = action.write("out.txt", attrs.arg, allow_args = True)
+    out, _ = action.write("out.txt", attrs.arg, allow_args = True, has_content_based_path = False)
     return [DefaultInfo(default_output = out)]
 
 anon_with_arg = bxl.anon_rule(

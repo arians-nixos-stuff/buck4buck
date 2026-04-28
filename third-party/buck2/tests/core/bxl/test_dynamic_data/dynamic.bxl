@@ -29,7 +29,7 @@ dynamic_test = bxl_main(
 def _dynamic_test_with_bxl_ctx(ctx):
     action_factory = ctx.bxl_actions().actions
 
-    query_params = action_factory.write_json("query_params", {"rule_type": "foo_rule", "universe": "root//..."})
+    query_params = action_factory.write_json("query_params", {"rule_type": "foo_rule", "universe": "root//..."}, has_content_based_path = False)
 
     configured_targets_output = action_factory.declare_output("configured_targets", has_content_based_path = False)
     configured_targets_different_platform_output = action_factory.declare_output("configured_targets_different_platform", has_content_based_path = False)
@@ -122,7 +122,7 @@ def _dynamic_test_execution_resolution(ctx):
     root_output.update({"toolchains_label": str(root_bxl_actions.toolchains.keys()[0])})
     root_output.update({"toolchain_dep": str(root_bxl_actions.toolchains.values()[0])})
 
-    root = action_factory.write_json("root", root_output)
+    root = action_factory.write_json("root", root_output, has_content_based_path = False)
 
     outputs = {}
     outputs.update({"dynamic": ctx.output.ensure(dynamic).abs_path()})

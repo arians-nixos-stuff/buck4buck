@@ -1850,6 +1850,7 @@ mod tests {
             DrawMode::Normal,
         )?;
 
+        // Buck UI/Build ID + Test UI, each on one line
         assert_eq!(full.len(), 2);
 
         let multiline = SessionInfoComponent {
@@ -1864,6 +1865,8 @@ mod tests {
             DrawMode::Normal,
         )?;
 
+        // Width too narrow for all on one line, so each splits into header + value:
+        // Buck UI header, Buck UI value, Test UI header, Test UI value
         assert_eq!(multiline.len(), 4);
 
         let too_small = SessionInfoComponent {

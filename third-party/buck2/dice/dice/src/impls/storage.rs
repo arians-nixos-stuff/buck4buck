@@ -69,10 +69,6 @@ impl DiceStorage {
     /// `cache` should be reused across multiple `page_out` calls in the same batch
     /// so that arcs reachable from more than one value are only serialized once.
     /// Use [`DiceStorage::new_page_out_cache`] to create a fresh cache.
-    #[expect(
-        dead_code,
-        reason = "wired up in a follow-up commit; D101759759 will remove this suppression"
-    )]
     pub(crate) fn page_out(
         &self,
         key_dyn: &DiceKeyErased,
@@ -107,20 +103,12 @@ impl DiceStorage {
 
     /// Returns a fresh page-out cache. Reuse the returned cache across all
     /// `page_out` calls in a single batch to dedup serialization of shared arcs.
-    #[expect(
-        dead_code,
-        reason = "wired up in a follow-up commit; D101759759 will remove this suppression"
-    )]
     pub(crate) fn new_page_out_cache() -> HashMap<usize, DataKey> {
         HashMap::new()
     }
 
     /// Deserialize the value at `data_key` back into a `DiceValidValue` via `key_dyn`'s
     /// `ValueSerialize`.
-    #[expect(
-        dead_code,
-        reason = "wired up in a follow-up commit; D101759759 will remove this suppression"
-    )]
     pub(crate) async fn hydrate(
         &self,
         key_dyn: &DiceKeyErased,

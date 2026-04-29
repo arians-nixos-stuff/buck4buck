@@ -50,10 +50,6 @@ pub(crate) struct VersionedGraphResultMismatch {
 /// paged out. The worker hydrates `data_key` via `DiceStorage` to materialize the value
 /// before constructing a `DiceComputedValue`.
 #[derive(Debug)]
-#[expect(
-    dead_code,
-    reason = "fields consumed by the worker; D101759759 will remove this suppression"
-)]
 pub(crate) struct PagedOutMatch {
     pub(crate) data_key: DataKey,
     pub(crate) valid: Arc<VersionRanges>,
@@ -64,10 +60,6 @@ pub(crate) struct PagedOutMatch {
 /// value is paged out. The worker hydrates `data_key` via `DiceStorage` to materialize the
 /// previous value before deciding whether deps still hold.
 #[derive(Debug)]
-#[expect(
-    dead_code,
-    reason = "fields consumed by the worker; D101759759 will remove this suppression"
-)]
 pub(crate) struct PagedOutMismatch {
     pub(crate) data_key: DataKey,
     pub(crate) prev_verified_version: VersionNumber,
@@ -80,19 +72,11 @@ pub(crate) enum VersionedGraphResult {
     Match(DiceComputedValue),
     /// the entry is present and valid at the requested version, but its value is paged
     /// out and must be hydrated before use
-    #[expect(
-        dead_code,
-        reason = "constructed when paging actually happens; D101759759 will remove this suppression"
-    )]
     MatchPagedOut(PagedOutMatch),
     /// the entry at the requested version has been invalidated and
     /// we have a previous value with deps to possibly resurrect
     CheckDeps(VersionedGraphResultMismatch),
     /// like `CheckDeps`, but the previous entry's value is paged out
-    #[expect(
-        dead_code,
-        reason = "constructed when paging actually happens; D101759759 will remove this suppression"
-    )]
     CheckDepsPagedOut(PagedOutMismatch),
     /// the entry is missing or there's no previously valid value to check
     Compute,

@@ -35,10 +35,6 @@ pub struct Dice {
     pub(crate) key_index: DiceKeyIndex,
     pub(crate) state_handle: CoreStateHandle,
     pub(crate) global_data: DiceData,
-    #[expect(
-        dead_code,
-        reason = "wired up in a follow-up commit; D101759759 will remove this suppression"
-    )]
     pub(crate) pagable_storage: Option<DiceStorage>,
 }
 
@@ -145,6 +141,22 @@ impl Dice {
         let tasks = self.state_handle.get_tasks_pending_cancellation().await;
 
         tasks.iter().all(|task| task.is_terminated())
+    }
+
+    /// Page out every hydrated `OccupiedGraphNode` value to the configured `DiceStorage`.
+    ///
+    /// **Caller must ensure DICE is idle** before calling this — typically by awaiting
+    /// `wait_for_idle()` first. Page-out runs on the dice core thread and blocks all
+    /// other state operations until it finishes.
+    ///
+    /// No-op if `DiceStorage` was not configured on the builder.
+    pub async fn page_out(self: &Arc<Self>) -> anyhow::Result<()> {
+        if !self.is_idle().await {
+            return Err(anyhow::anyhow!(
+                "Dice::page_out called while DICE is not idle; call `wait_for_idle()` first"
+            ));
+        }
+        self.state_handle.page_out(self.dupe()).await
     }
 }
 

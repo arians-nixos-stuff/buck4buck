@@ -32,6 +32,7 @@ use crate::impls::core::versions::VersionEpoch;
 use crate::impls::core::versions::introspection::VersionIntrospectable;
 use crate::impls::ctx::SharedLiveTransactionCtx;
 use crate::impls::deps::graph::SeriesParallelDeps;
+use crate::impls::dice::Dice;
 use crate::impls::key::DiceKey;
 use crate::impls::task::dice::TerminationObserver;
 use crate::impls::transaction::ActiveTransactionGuard;
@@ -174,6 +175,23 @@ impl CoreStateHandle {
         self.request(StateRequest::UnstableDropEverything)
     }
 
+    /// Page out all hydrated `OccupiedGraphNode` values to `dice.pagable_storage`.
+    /// Caller must ensure DICE is idle.
+    pub(crate) fn page_out(
+        &self,
+        dice: std::sync::Arc<Dice>,
+    ) -> impl Future<Output = anyhow::Result<()>> + use<> {
+        let (resp, recv) = oneshot::channel();
+        self.call(StateRequest::PageOut { dice, resp }, recv)
+    }
+
+    /// Replace the paged-out value at `key` with its hydrated form. Fire-and-forget;
+    /// any subsequent state requests for `key` are guaranteed to see the hydrated value
+    /// because state requests are processed FIFO.
+    pub(crate) fn rehydrate(&self, key: DiceKey, value: DiceValidValue) {
+        self.request(StateRequest::Rehydrate { key, value })
+    }
+
     /// Collect metrics
     pub(crate) fn metrics(&self) -> Metrics {
         let (resp, recv) = oneshot::channel();
@@ -281,6 +299,18 @@ pub(super) enum StateRequest {
     },
     /// For unstable take
     UnstableDropEverything,
+    /// Page out hydrated `OccupiedGraphNode` values via `dice.pagable_storage`.
+    PageOut {
+        #[derivative(Debug = "ignore")]
+        dice: std::sync::Arc<Dice>,
+        resp: Sender<anyhow::Result<()>>,
+    },
+    /// Replace the paged-out value at `key` with its hydrated form.
+    Rehydrate {
+        key: DiceKey,
+        #[derivative(Debug = "ignore")]
+        value: DiceValidValue,
+    },
     /// Collect metrics
     Metrics { resp: Sender<Metrics> },
     /// Collects the introspectable dice state

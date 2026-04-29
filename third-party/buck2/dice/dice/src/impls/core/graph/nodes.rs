@@ -339,12 +339,15 @@ impl PagableNodeValue {
         })
     }
 
-    #[expect(
-        dead_code,
-        reason = "used by the page-out flow; D101759759 will remove this suppression"
-    )]
     pub(crate) fn as_hydrated(&self) -> Option<&DiceValidValue> {
         self.value.as_ref()
+    }
+
+    /// Returns the on-disk key if the value has already been serialized to storage.
+    /// When this is `Some`, the next page-out can skip re-serialization and reuse
+    /// the existing key.
+    pub(crate) fn data_key(&self) -> Option<DataKey> {
+        self.data_key
     }
 }
 
@@ -527,12 +530,15 @@ impl OccupiedGraphNode {
     /// Restores the in-memory hydrated value (typically after deserializing from
     /// disk). Keeps any existing `data_key` so the next page-out skips
     /// re-serialization.
-    #[expect(
-        dead_code,
-        reason = "used by the rehydrate request; D101759759 will remove this suppression"
-    )]
     pub(crate) fn rehydrate(&mut self, value: DiceValidValue) {
         self.res.value = Some(value);
+    }
+
+    /// Records that the value has been written to storage at `data_key` and drops
+    /// the in-memory value (the on-disk reference is now load-bearing).
+    pub(crate) fn set_paged_out(&mut self, data_key: DataKey) {
+        self.res.data_key = Some(data_key);
+        self.res.value = None;
     }
 
     /// `expect_hydrated_msg` is forwarded to `expect_hydrated` and should explain why the
@@ -557,17 +563,16 @@ impl OccupiedGraphNode {
     ) -> InvalidateResult<'_> {
         // TODO(cjhopman): accepting injections only for InjectedKey would make the VersionedGraph simpler. Currently, this is used
         // for "mocking" dice keys in tests via DiceBuilder::mock_and_return().
-        if self
-            .val()
-            .expect_hydrated(
-                "on_injected does not yet handle paged-out entries; this is a known \
-                 footgun fixed in a follow-up commit",
-            )
-            .equality(&value)
-        {
-            // TODO(cjhopman): This is wrong. The node could currently be in a dirtied state and we
-            // aren't recording that the value is verified at this version.
-            return InvalidateResult::NoChange;
+        //
+        // Equality short-circuit only applies when the existing value is hydrated. If
+        // it's paged out, we can't compare without hydrating, so we skip the check
+        // and just replace the node below.
+        if let Some(existing) = self.res.as_hydrated() {
+            if existing.equality(&value) {
+                // TODO(cjhopman): This is wrong. The node could currently be in a dirtied state and we
+                // aren't recording that the value is verified at this version.
+                return InvalidateResult::NoChange;
+            }
         }
 
         self.res = PagableNodeValue::hydrated(value);

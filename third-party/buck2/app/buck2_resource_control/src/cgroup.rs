@@ -681,13 +681,24 @@ impl CgroupMinimal {
         }
 
         let prep_script = std::env::var("PREP_CGROUP_SCRIPT").unwrap();
-        let path = background_command(&prep_script)
+        let output = background_command(&prep_script)
             .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
             .output()
-            .unwrap()
-            .stdout;
-        let path = String::from_utf8(path).unwrap();
-        let path = CgroupPath::new(AbsNormPath::new(path.trim()).unwrap());
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "PREP_CGROUP_SCRIPT failed with status {}.\nStderr: {}",
+            output.status,
+            String::from_utf8_lossy(&output.stderr),
+        );
+        let path = String::from_utf8(output.stdout).unwrap();
+        let path = path.trim();
+        assert!(
+            !path.is_empty(),
+            "PREP_CGROUP_SCRIPT produced no output on stdout",
+        );
+        let path = CgroupPath::new(AbsNormPath::new(path).unwrap());
 
         // Attempt to actually spawn a process into the cgroup, see below for why
         let cgroup = Self::try_from_path(path.to_buf())

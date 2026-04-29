@@ -42,6 +42,7 @@ use buck2_fs::working_dir::AbsWorkingDir;
 use superconsole::Line;
 use superconsole::Span;
 
+use crate::commands::build::print_buck_ui_and_rating;
 use crate::commands::build::print_build_result;
 
 fn forward_output_to_path(
@@ -402,6 +403,8 @@ impl StreamingCommand for TestCommand {
         if statuses.build_errors != 0 {
             console.print_error(&format!("{} BUILDS FAILED", statuses.build_errors))?;
         }
+
+        print_buck_ui_and_rating(&console, ctx, &self.common_opts.console_opts)?;
 
         let mut line = Line::default();
         line.push(Span::new_unstyled_lossy("Tests finished: "));

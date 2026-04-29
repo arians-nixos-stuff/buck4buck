@@ -299,6 +299,7 @@ impl StreamingCommand for BuildCommand {
         };
 
         let console = self.common_opts.console_opts.final_console();
+        print_buck_ui_and_rating(&console, ctx, &self.common_opts.console_opts)?;
 
         if success {
             if self.patterns.is_empty() {
@@ -383,12 +384,65 @@ pub(crate) fn print_build_succeeded(
     extra: Option<&str>,
 ) -> buck2_error::Result<()> {
     if ctx.verbosity.print_success_message() {
-        #[cfg(fbcode_build)]
-        if console.supports_hyperlinks() {
-            print_build_rating(console, ctx)?;
-        }
         console.print_success_no_newline("BUILD SUCCEEDED")?;
         console.print_stderr(extra.unwrap_or_default())?;
+    }
+    Ok(())
+}
+
+/// Prints two things at command end:
+///
+/// 1. **Buck UI URL re-print** — emitted only when superconsole was active
+///    on a TTY (`maybe_superconsole() && is_tty()`). Superconsole's live area
+///    showed the URL during the command but clears on exit, so without the
+///    re-print the URL would be gone from scrollback. Simple-console runs
+///    already printed it at command start (simpleconsole.rs) and that line
+///    stays in scrollback, so re-printing would be a duplicate.
+///
+/// 2. **Build-speed rating prompt** — two flavors, gated independently:
+///    - Hyperlink-capable terminals: a single OSC 8 link via
+///      [`print_build_rating`]. Gated only on hyperlink support (and TTY
+///      inside the helper) — the link is a self-contained one-liner that
+///      doesn't need to share the URL gate.
+///    - Non-hyperlink terminals: piggy-backs on the URL re-print above.
+///      We prepend "⭐ Rate this build speed, follow this link:" and append
+///      `?rbs` to the URL we were already going to print, so the rate
+///      prompt rides for free on the line we had to emit anyway. We don't
+///      print a separate rate prompt for simple-console users because
+///      we'd have to duplicate the URL line just to attach the `?rbs`
+///      suffix — that's the only reason this branch shares the URL gate.
+///
+/// Safe to call from any streaming command (build, run, test, install) so
+/// the sentiment survey reaches all of them — callers in other commands
+/// should not invoke this helper.
+pub(crate) fn print_buck_ui_and_rating(
+    console: &FinalConsole,
+    ctx: &ClientCommandContext<'_>,
+    console_opts: &CommonConsoleOptions,
+) -> buck2_error::Result<()> {
+    if console_opts.console_type.maybe_superconsole() && console.is_tty() {
+        if cfg!(fbcode_build) {
+            // ?rbs (rate build speed) triggers a modal in Buck UI prompting
+            // the user to rate their build speed experience. Only emitted in
+            // the non-hyperlink branch — hyperlink terminals get the richer
+            // emoji prompt below.
+            let mut rate_build_speed_suffix = "";
+            if !console.supports_hyperlinks() {
+                console.print_stderr("\u{2B50} Rate this build speed, follow this link:")?;
+                rate_build_speed_suffix = "?rbs";
+            }
+            console.print_stderr(&format!(
+                "Buck UI: https://www.internalfb.com/buck2/{}{}",
+                ctx.trace_id, rate_build_speed_suffix
+            ))?;
+        } else {
+            console.print_stderr(&format!("Build ID: {}", ctx.trace_id))?;
+        }
+    }
+
+    #[cfg(fbcode_build)]
+    if console.supports_hyperlinks() {
+        print_build_rating(console, ctx)?;
     }
     Ok(())
 }

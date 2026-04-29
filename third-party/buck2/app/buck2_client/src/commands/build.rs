@@ -42,6 +42,7 @@ use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_core::buck2_env;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
+use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
 #[cfg(fbcode_build)]
 use superconsole::style::Color;
@@ -423,14 +424,16 @@ pub(crate) fn print_buck_ui_and_rating(
     ctx: &ClientCommandContext<'_>,
     used_superconsole: bool,
 ) -> buck2_error::Result<()> {
+    let show_rating = should_show_rating(&ctx.trace_id);
+
     if used_superconsole {
         if cfg!(fbcode_build) {
             // ?rbs (rate build speed) triggers a modal in Buck UI prompting
             // the user to rate their build speed experience. Only emitted in
-            // the non-hyperlink branch — hyperlink terminals get the richer
-            // emoji prompt below.
+            // the non-hyperlink branch — hyperlink terminals get the inline
+            // hyperlink prompt below.
             let mut rate_build_speed_suffix = "";
-            if !console.supports_hyperlinks() {
+            if show_rating && !console.supports_hyperlinks() {
                 console.print_stderr("\u{2B50} Rate this build speed, follow this link:")?;
                 rate_build_speed_suffix = "?rbs";
             }
@@ -444,10 +447,24 @@ pub(crate) fn print_buck_ui_and_rating(
     }
 
     #[cfg(fbcode_build)]
-    if console.supports_hyperlinks() {
+    if show_rating && console.supports_hyperlinks() {
         print_build_rating(console, ctx)?;
     }
     Ok(())
+}
+
+/// Sample 1/16 of builds (those whose trace id's first hex digit is `'0'`)
+/// for the rating prompt — keeps the survey unobtrusive while still reaching
+/// the population.
+fn should_show_rating(trace_id: &TraceId) -> bool {
+    is_in_rating_sample(trace_id.as_bytes()[0])
+}
+
+/// True when the high nibble of `first_byte` is zero — i.e. the leading hex
+/// digit of the UUID's textual form is `'0'`. Acts on the raw byte so we
+/// avoid allocating the textual form just to read its first character.
+fn is_in_rating_sample(first_byte: u8) -> bool {
+    first_byte >> 4 == 0
 }
 
 pub(crate) fn print_build_failed(console: &FinalConsole) -> buck2_error::Result<()> {
@@ -469,14 +486,12 @@ fn print_build_rating(
         return Ok(());
     }
 
-    let trace_id = &ctx.trace_id;
-    let rate = "\u{2B50} Rate this build speed:";
-    let url = format!("https://www.internalfb.com/buck2/{}?rbs", trace_id);
-    let good = colored!(Color::Yellow, "Good \u{1f44d}");
-    let bad = colored!(Color::Yellow, "Bad \u{1f44e}");
+    let url = format!("https://www.internalfb.com/buck2/{}?rbs", ctx.trace_id);
+    let good = colored!(Color::Yellow, "Good");
+    let bad = colored!(Color::Yellow, "Bad");
     console.print_stderr(&format!(
-        "{} \x1b]8;;{}&sentiment=SATISFIED\x1b\\{}\x1b]8;;\x1b\\ or \x1b]8;;{}&sentiment=DISSATISFIED\x1b\\{}\x1b]8;;\x1b\\",
-        rate, url, good, url, bad,
+        "\u{2B50} Rate this build speed: \x1b]8;;{}&sentiment=SATISFIED\x1b\\{}\x1b]8;;\x1b\\ or \x1b]8;;{}&sentiment=DISSATISFIED\x1b\\{}\x1b]8;;\x1b\\",
+        url, good, url, bad,
     ))?;
     Ok(())
 }
@@ -587,6 +602,47 @@ mod tests {
             ]),
             Ok(..)
         );
+
+        Ok(())
+    }
+
+    #[test]
+    fn rating_sample_covers_high_nibble_zero() {
+        // High nibble 0 spans bytes 0x00..=0x0f — exactly 1/16 of the input
+        // space, the intended sampling rate.
+        for byte in 0x00u8..=0x0f {
+            assert!(
+                is_in_rating_sample(byte),
+                "byte 0x{byte:02x} (high nibble 0) should be sampled"
+            );
+        }
+    }
+
+    #[test]
+    fn rating_sample_excludes_other_high_nibbles() {
+        // Every other byte (15/16 of the space) must be excluded.
+        for byte in 0x10u8..=0xff {
+            assert!(
+                !is_in_rating_sample(byte),
+                "byte 0x{byte:02x} (high nibble != 0) should not be sampled"
+            );
+        }
+    }
+
+    #[test]
+    fn rating_sample_works_with_real_trace_id() -> buck2_error::Result<()> {
+        use std::str::FromStr;
+
+        // First byte = 0x00 → high nibble 0 → sampled.
+        let zero = TraceId::from_str("00000000-0000-0000-0000-000000000000")?;
+        assert!(should_show_rating(&zero));
+        // First byte = 0x0a → high nibble 0 → sampled (textual form starts '0a…').
+        let leading_zero = TraceId::from_str("0a000000-0000-0000-0000-000000000000")?;
+        assert!(should_show_rating(&leading_zero));
+
+        // First byte = 0x10 → high nibble 1 → not sampled.
+        let nonzero = TraceId::from_str("10000000-0000-0000-0000-000000000000")?;
+        assert!(!should_show_rating(&nonzero));
 
         Ok(())
     }

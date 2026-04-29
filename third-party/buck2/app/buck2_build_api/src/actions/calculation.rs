@@ -519,9 +519,17 @@ async fn build_action_inner(
             prefers_local: prefers_local.unwrap_or_default(),
             requires_local: requires_local.unwrap_or_default(),
             allows_cache_upload: allows_cache_upload.unwrap_or_default(),
-            did_cache_upload: did_cache_upload.unwrap_or_default(),
+            cache_upload_result: if did_cache_upload.unwrap_or_default() {
+                buck2_data::UploadResult::Uploaded as i32
+            } else {
+                buck2_data::UploadResult::DidNotUploadUnspecified as i32
+            },
             allows_dep_file_cache_upload: allows_dep_file_cache_upload.unwrap_or_default(),
-            did_dep_file_cache_upload: did_dep_file_cache_upload.unwrap_or_default(),
+            dep_file_cache_upload_result: if did_dep_file_cache_upload.unwrap_or_default() {
+                buck2_data::UploadResult::Uploaded as i32
+            } else {
+                buck2_data::UploadResult::DidNotUploadUnspecified as i32
+            },
             dep_file_key: dep_file_key.map(|d| d.to_string()),
             eligible_for_full_hybrid,
             buck2_revision,

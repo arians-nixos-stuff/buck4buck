@@ -1721,7 +1721,7 @@ message ActionExecutionEnd {
   bool prefers_local = 27;
   bool requires_local = 28;
   bool allows_cache_upload = 29;
-  bool did_cache_upload = 30;
+  UploadResult cache_upload_result = 30;
 
   // Revision hash (version) for this action. This is set only when the action
   // fails.
@@ -1739,7 +1739,7 @@ message ActionExecutionEnd {
 
   // Fields related to the remote dep file cache
   bool allows_dep_file_cache_upload = 35;
-  bool did_dep_file_cache_upload = 36;
+  UploadResult dep_file_cache_upload_result = 36;
   // Remote dep file key (the digest we use to populate the action cache).
   // This is set if the action contains a dep file
   optional string dep_file_key = 37;
@@ -1815,6 +1815,17 @@ enum ExpectedEligibleForDedupe {
   EXPECTED_ELIGIBLE = 0;
   EXPECTED_INELIGIBLE = 1;
   UNKNOWN_ELIGIBILITY = 2;
+}
+
+// N.B. Historically, `ActionExecutionEnd.did_*cache_upload_result`` were
+// boolean values. They've been converted to this `*_cache_upload_result` with
+// values from this enum, but it's important that the semantic meaning of the
+// 0/1 values here match the false/true meanings of the old `did_*` fields. That
+// way old buck instances that still generate true/false are interpreted
+// correctly by new ingress/buck clients.
+enum UploadResult {
+  UPLOAD_RESULT_DID_NOT_UPLOAD_UNSPECIFIED = 0;
+  UPLOAD_RESULT_UPLOADED = 1;
 }
 
 message CommandInvalidationInfo {

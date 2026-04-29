@@ -161,7 +161,15 @@ impl DiceTaskWorker {
             VersionedGraphResult::Match(entry) => {
                 return task_state.lookup_matches(handle, entry);
             }
+            VersionedGraphResult::MatchPagedOut(_) => {
+                // Page-in is wired up in a follow-up commit. Until then, no node ever
+                // ends up paged out (see DiceStorage), so this branch is unreachable.
+                unreachable!("paged-out lookup result not yet supported by worker")
+            }
             VersionedGraphResult::CheckDeps(mismatch2) => Some(mismatch2),
+            VersionedGraphResult::CheckDepsPagedOut(_) => {
+                unreachable!("paged-out lookup result not yet supported by worker")
+            }
             VersionedGraphResult::Compute => None,
             VersionedGraphResult::Rejected(..) => {
                 return Err(CancellationReason::Rejected);

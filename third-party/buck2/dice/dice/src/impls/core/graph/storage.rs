@@ -365,7 +365,7 @@ impl VersionedGraph {
             invalidation_paths,
         );
 
-        let res = entry.computed_val(v);
+        let res = entry.computed_val(v, "newly-constructed OccupiedGraphNode is always hydrated");
         self.nodes.insert(key, VersionedGraphNode::Occupied(entry));
         res
     }
@@ -407,7 +407,11 @@ impl ValueReusable {
                 if new_deps != &***value.deps() {
                     return false;
                 }
-                new_value.equality(value.val())
+                new_value.equality(value.val().expect_hydrated(
+                    "is_reusable: no node is paged out at this point in the stack \
+                     (page_out is wired up in a follow-up commit); the paged-out case \
+                     is fixed there to return false instead",
+                ))
             }
             // For version-based, the deps are guaranteed to match if `version` is in the node's verified versions.
             ValueReusable::VersionBased(version) => value.is_verified_at(*version),

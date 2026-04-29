@@ -305,7 +305,7 @@ fn invalid_update() {
         }
     }
 
-    let dice = Dice::new(DiceData::new());
+    let dice = Dice::new(DiceData::new(), None);
     let mut updater = dice.updater();
 
     assert!(updater.changed_to([(Invalid, ())]).is_err());

@@ -167,7 +167,7 @@ impl Key for Finish {
 
 #[tokio::test]
 async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
-    let dice = Dice::new(DiceData::new());
+    let dice = Dice::new(DiceData::new(), None);
 
     let user_data = std::sync::Arc::new(UserComputationData::new());
 
@@ -233,7 +233,7 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn when_equal_return_same_instance() -> anyhow::Result<()> {
-    let dice = Dice::new(DiceData::new());
+    let dice = Dice::new(DiceData::new(), None);
 
     let user_data = std::sync::Arc::new(UserComputationData::new());
     let events = DiceEventDispatcher::new(user_data.tracker.dupe(), dice.dupe());
@@ -360,7 +360,7 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn spawn_with_no_previously_cancelled_task() {
-    let dice = Dice::new(DiceData::new());
+    let dice = Dice::new(DiceData::new(), None);
 
     let (shared_ctx, _guard) = dice.testing_shared_ctx(VersionNumber::new(0)).await;
 
@@ -393,7 +393,7 @@ async fn spawn_with_no_previously_cancelled_task() {
 
 #[tokio::test]
 async fn spawn_with_previously_cancelled_task_that_cancelled() {
-    let dice = Dice::new(DiceData::new());
+    let dice = Dice::new(DiceData::new(), None);
 
     let (shared_ctx, _guard) = dice.testing_shared_ctx(VersionNumber::new(0)).await;
 
@@ -466,7 +466,7 @@ async fn spawn_with_previously_cancelled_task_that_cancelled() {
 
 #[tokio::test]
 async fn spawn_with_previously_cancelled_task_that_finished() {
-    let dice = Dice::new(DiceData::new());
+    let dice = Dice::new(DiceData::new(), None);
 
     let (shared_ctx, _guard) = dice.testing_shared_ctx(VersionNumber::new(0)).await;
 
@@ -543,7 +543,7 @@ async fn spawn_with_previously_cancelled_task_that_finished() {
 
 #[tokio::test]
 async fn mismatch_epoch_results_in_cancelled_result() {
-    let dice = Dice::new(DiceData::new());
+    let dice = Dice::new(DiceData::new(), None);
 
     let (shared_ctx, guard) = dice.testing_shared_ctx(VersionNumber::new(0)).await;
 
@@ -648,7 +648,7 @@ async fn spawn_with_previously_cancelled_task_nested_cancelled() -> anyhow::Resu
         }
     }
 
-    let dice = Dice::new(DiceData::new());
+    let dice = Dice::new(DiceData::new(), None);
 
     let exclusive = Arc::new(Mutex::new(false));
     let is_started = Arc::new(Notify::new());
@@ -804,7 +804,7 @@ async fn test_values_gets_resurrect_if_deps_dont_change_regardless_of_equality()
         dice.testing_shared_ctx(v).await
     }
 
-    let dice = Dice::new(DiceData::new());
+    let dice = Dice::new(DiceData::new(), None);
 
     let user_data = std::sync::Arc::new(UserComputationData::new());
     let events = DiceEventDispatcher::new(user_data.tracker.dupe(), dice.dupe());
@@ -910,7 +910,7 @@ async fn get_ctx_at_version(
 // short period and then check the total number of nodes that get computed.
 #[tokio::test]
 async fn test_check_dependencies_stops_at_changed() -> anyhow::Result<()> {
-    let dice = Dice::new(DiceData::new());
+    let dice = Dice::new(DiceData::new(), None);
 
     let compute_behavior = (0..20)
         .map(|_v| std::sync::Mutex::new(ComputeBehavior::Immediate))
@@ -999,7 +999,7 @@ async fn test_check_dependencies_stops_at_changed() -> anyhow::Result<()> {
 /// from check_dependencies.
 #[tokio::test]
 async fn test_check_dependencies_can_eagerly_check_all_parallel_deps() -> anyhow::Result<()> {
-    let dice = Dice::new(DiceData::new());
+    let dice = Dice::new(DiceData::new(), None);
 
     let compute_behavior = (0..20)
         .map(|_v| std::sync::Mutex::new(ComputeBehavior::Immediate))

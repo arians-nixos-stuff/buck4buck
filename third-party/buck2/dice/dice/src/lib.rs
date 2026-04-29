@@ -253,6 +253,7 @@ pub use crate::impls::dice::DiceDataBuilder;
 pub use crate::impls::key::DiceKeyDyn;
 pub use crate::impls::key::DiceProjectionDyn;
 pub use crate::impls::opaque::OpaqueValue;
+pub use crate::impls::storage::DiceStorage;
 pub use crate::impls::value::DiceValueDyn;
 pub use crate::introspection::serialize_dense_graph;
 pub use crate::introspection::serialize_graph;

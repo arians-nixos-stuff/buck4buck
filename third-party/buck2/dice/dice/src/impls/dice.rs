@@ -23,6 +23,7 @@ use crate::api::user_data::UserComputationData;
 use crate::impls::core::state::CoreStateHandle;
 use crate::impls::core::state::init_state;
 use crate::impls::key_index::DiceKeyIndex;
+use crate::impls::storage::DiceStorage;
 use crate::impls::transaction::TransactionUpdater;
 use crate::introspection::graph::GraphIntrospectable;
 use crate::metrics::Metrics;
@@ -34,6 +35,11 @@ pub struct Dice {
     pub(crate) key_index: DiceKeyIndex,
     pub(crate) state_handle: CoreStateHandle,
     pub(crate) global_data: DiceData,
+    #[expect(
+        dead_code,
+        reason = "wired up in a follow-up commit; D101759759 will remove this suppression"
+    )]
+    pub(crate) pagable_storage: Option<DiceStorage>,
 }
 
 impl Debug for Dice {
@@ -42,30 +48,43 @@ impl Debug for Dice {
     }
 }
 
-pub struct DiceDataBuilder(DiceData);
+pub struct DiceDataBuilder {
+    data: DiceData,
+    pagable_storage: Option<DiceStorage>,
+}
 
 impl DiceDataBuilder {
     pub(crate) fn new() -> Self {
-        Self(DiceData::new())
+        Self {
+            data: DiceData::new(),
+            pagable_storage: None,
+        }
     }
 
     pub fn set<K: Send + Sync + 'static>(&mut self, val: K) {
-        self.0.set(val);
+        self.data.set(val);
+    }
+
+    /// Configures pagable storage for this DICE instance, enabling
+    /// [`Dice::page_out`].
+    pub fn set_pagable_storage(&mut self, storage: DiceStorage) {
+        self.pagable_storage = Some(storage);
     }
 
     pub fn build(self, _detect_cycles: DetectCycles) -> Arc<Dice> {
-        Dice::new(self.0)
+        Dice::new(self.data, self.pagable_storage)
     }
 }
 
 impl Dice {
-    pub(crate) fn new(global_data: DiceData) -> Arc<Self> {
+    pub(crate) fn new(global_data: DiceData, pagable_storage: Option<DiceStorage>) -> Arc<Self> {
         let state_handle = init_state();
 
         Arc::new(Dice {
             key_index: Default::default(),
             state_handle,
             global_data,
+            pagable_storage,
         })
     }
 

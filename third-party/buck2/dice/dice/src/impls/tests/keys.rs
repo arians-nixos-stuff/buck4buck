@@ -72,7 +72,7 @@ async fn concurrent_identical_requests_are_deduped() -> anyhow::Result<()> {
         }
     }
 
-    let dice = Dice::new(DiceData::new());
+    let dice = Dice::new(DiceData::new(), None);
 
     let guard = Arc::new(Mutex::new(0));
     let _g = guard.lock().await;
@@ -153,7 +153,7 @@ fn different_requests_are_spawned_in_parallel() -> anyhow::Result<()> {
     let barrier = Arc::new(std::sync::Barrier::new(n_thread));
 
     rt.block_on(async move {
-        let dice = Dice::new(DiceData::new());
+        let dice = Dice::new(DiceData::new(), None);
 
         let ctx = &dice.updater().commit().await;
         let k = &ComputeParallel(barrier.dupe());

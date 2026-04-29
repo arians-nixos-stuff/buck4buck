@@ -44,6 +44,14 @@ impl DiceValidValue {
     pub(crate) fn equality(&self, other: &DiceValidValue) -> bool {
         self.0.equality(&*other.0)
     }
+
+    pub(crate) fn as_dyn(&self) -> &dyn DiceValueDyn {
+        &*self.0
+    }
+
+    pub(crate) fn from_arc(arc: std::sync::Arc<dyn DiceValueDyn>) -> Self {
+        Self(arc)
+    }
 }
 
 /// Type erased value that may be transient, or whose dependencies are transient

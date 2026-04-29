@@ -266,7 +266,7 @@ mod tests {
 
     #[test]
     fn changes_are_recorded() -> anyhow::Result<()> {
-        let dice = Dice::new(DiceData::new());
+        let dice = Dice::new(DiceData::new(), None);
         let mut updater = dice.updater();
 
         updater.changed(vec![K(1), K(2)])?;
@@ -315,7 +315,7 @@ mod tests {
 
     #[tokio::test]
     async fn transaction_versions() -> anyhow::Result<()> {
-        let dice = Dice::new(DiceData::new());
+        let dice = Dice::new(DiceData::new(), None);
         let mut updater = dice.updater();
 
         updater.changed(vec![K(1), K(2)])?;

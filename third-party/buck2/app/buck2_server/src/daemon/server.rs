@@ -1076,6 +1076,26 @@ impl DaemonApi for BuckdServer {
         .await
     }
 
+    type HydrationPageOutStream = ResponseStream;
+    async fn hydration_page_out(
+        &self,
+        req: Request<HydrationPageOutRequest>,
+    ) -> Result<Response<ResponseStream>, Status> {
+        self.run_streaming(
+            req,
+            DefaultCommandOptions,
+            |context, partial_result_dispatcher, req| {
+                crate::hydration_page_out::hydration_page_out_command(
+                    context,
+                    partial_result_dispatcher,
+                    req,
+                )
+                .boxed()
+            },
+        )
+        .await
+    }
+
     type FileStatusStream = ResponseStream;
     async fn file_status(
         &self,

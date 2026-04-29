@@ -23,6 +23,7 @@ mod dice_tracker;
 mod file_status;
 mod heartbeat_guard;
 mod host_info;
+mod hydration_page_out;
 mod jemalloc_stats;
 pub mod lsp;
 mod materialize;

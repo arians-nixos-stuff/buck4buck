@@ -26,6 +26,7 @@ use crate::exe::ExeCommand;
 use crate::file_status::FileStatusCommand;
 use crate::flush_dep_files::FlushDepFilesCommand;
 use crate::heap_dump::HeapDumpCommand;
+use crate::hydration::HydrationCommand;
 use crate::internal_version::InternalVersionCommand;
 use crate::log_perf::LogPerfCommand;
 use crate::materialize::MaterializeCommand;
@@ -47,6 +48,7 @@ mod exe;
 mod file_status;
 mod flush_dep_files;
 mod heap_dump;
+mod hydration;
 mod internal_version;
 mod log_perf;
 mod materialize;
@@ -95,6 +97,9 @@ pub enum DebugCommand {
     Paranoid(ParanoidCommand),
     Eval(EvalCommand),
     ThreadDump(ThreadDumpCommand),
+    /// Control DICE node value page-out / page-in.
+    #[clap(subcommand)]
+    Hydration(HydrationCommand),
 }
 
 impl DebugCommand {
@@ -126,6 +131,7 @@ impl DebugCommand {
             DebugCommand::Paranoid(cmd) => cmd.exec(matches, ctx),
             DebugCommand::Eval(cmd) => ctx.exec(cmd, matches, events_ctx),
             DebugCommand::ThreadDump(cmd) => cmd.exec(matches, ctx),
+            DebugCommand::Hydration(cmd) => cmd.exec(matches, ctx, events_ctx),
         }
     }
 

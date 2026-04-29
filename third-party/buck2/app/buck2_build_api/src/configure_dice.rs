@@ -21,6 +21,7 @@ use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::SetDigestConfig;
 use dice::DetectCycles;
 use dice::Dice;
+use dice::DiceStorage;
 
 use crate::actions::execute::dice_data::SetInvalidationTrackingConfig;
 use crate::build::detailed_aggregated_metrics::dice::SetDetailedAggregatedMetricsEventHandler;
@@ -66,6 +67,16 @@ pub async fn configure_dice_for_buck(
     dice.set_detailed_aggregated_metrics_event_handler(Some(
         start_detailed_aggregated_metrics_state_tracker(),
     ));
+
+    // Opt-in pagable storage. When `BUCK2_DICE_DB_PATH` is set, configures a
+    // sled-backed `DiceStorage` so `Dice::page_out()` (e.g. via
+    // `buck2 debug hydration page-out`) can serialize node values to disk.
+    if let Ok(path) = std::env::var("BUCK2_DICE_DB_PATH") {
+        let storage = DiceStorage::open(std::path::Path::new(&path)).map_err(|e| {
+            buck2_error::conversion::from_any_with_tag(e, buck2_error::ErrorTag::Environment)
+        })?;
+        dice.set_pagable_storage(storage);
+    }
 
     let dice = dice.build(detect_cycles);
     let mut dice_ctx = dice.updater();

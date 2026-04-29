@@ -299,30 +299,6 @@ impl StreamingCommand for BuildCommand {
         };
 
         let console = self.common_opts.console_opts.final_console();
-        // Re-print Buck UI / Build ID here only if superconsole was actually active,
-        // because superconsole's live area (which showed it during the build) clears
-        // on exit. If simple console handled the build, it already printed the URL
-        // at command start (simpleconsole.rs) and that line stays in scrollback.
-        // `maybe_superconsole()` covers user opt-in (`Super`/`Auto`); `is_tty()`
-        // mirrors the same TTY check `Auto` uses to pick superconsole over the
-        // simple-console fallback (see common/ui.rs `final_console` and
-        // `get_console_with_root`).
-        if self
-            .common_opts
-            .console_opts
-            .console_type
-            .maybe_superconsole()
-            && console.is_tty()
-        {
-            if cfg!(fbcode_build) {
-                console.print_stderr(&format!(
-                    "Buck UI: https://www.internalfb.com/buck2/{}",
-                    ctx.trace_id
-                ))?;
-            } else {
-                console.print_stderr(&format!("Build ID: {}", ctx.trace_id))?;
-            }
-        }
 
         if success {
             if self.patterns.is_empty() {

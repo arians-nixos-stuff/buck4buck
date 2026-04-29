@@ -299,7 +299,7 @@ impl StreamingCommand for BuildCommand {
         };
 
         let console = self.common_opts.console_opts.final_console();
-        print_buck_ui_and_rating(&console, ctx, &self.common_opts.console_opts)?;
+        print_buck_ui_and_rating(&console, ctx, events_ctx.used_superconsole)?;
 
         if success {
             if self.patterns.is_empty() {
@@ -392,12 +392,15 @@ pub(crate) fn print_build_succeeded(
 
 /// Prints two things at command end:
 ///
-/// 1. **Buck UI URL re-print** — emitted only when superconsole was active
-///    on a TTY (`maybe_superconsole() && is_tty()`). Superconsole's live area
-///    showed the URL during the command but clears on exit, so without the
-///    re-print the URL would be gone from scrollback. Simple-console runs
-///    already printed it at command start (simpleconsole.rs) and that line
-///    stays in scrollback, so re-printing would be a duplicate.
+/// 1. **Buck UI URL re-print** — emitted only when a superconsole was
+///    actually constructed for the command (`used_superconsole`).
+///    Superconsole's live area showed the URL during the command but
+///    clears on exit, so without the re-print the URL would be gone from
+///    scrollback. Simple-console runs already printed it at command start
+///    (simpleconsole.rs) and that line stays in scrollback, so re-printing
+///    would be a duplicate. The flag comes from `get_console_with_root`
+///    via `EventsCtx::used_superconsole`, so it correctly reports `false`
+///    for the `ConsoleType::Auto`-falls-back-to-simple case.
 ///
 /// 2. **Build-speed rating prompt** — two flavors, gated independently:
 ///    - Hyperlink-capable terminals: a single OSC 8 link via
@@ -418,9 +421,9 @@ pub(crate) fn print_build_succeeded(
 pub(crate) fn print_buck_ui_and_rating(
     console: &FinalConsole,
     ctx: &ClientCommandContext<'_>,
-    console_opts: &CommonConsoleOptions,
+    used_superconsole: bool,
 ) -> buck2_error::Result<()> {
-    if console_opts.console_type.maybe_superconsole() && console.is_tty() {
+    if used_superconsole {
         if cfg!(fbcode_build) {
             // ?rbs (rate build speed) triggers a modal in Buck UI prompting
             // the user to rate their build speed experience. Only emitted in

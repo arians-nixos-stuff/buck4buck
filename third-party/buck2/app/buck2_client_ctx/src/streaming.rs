@@ -91,7 +91,7 @@ fn update_events_ctx<T: StreamingCommand>(
         (None, None, None)
     };
 
-    subscribers.push(get_console_with_root(
+    let (console_subscriber, used_superconsole) = get_console_with_root(
         ctx.trace_id.dupe(),
         console_opts.console_type,
         ctx.verbosity,
@@ -103,7 +103,9 @@ fn update_events_ctx<T: StreamingCommand>(
         T::COMMAND_NAME,
         console_opts.superconsole_config(),
         health_check_display_reports_receiver,
-    ));
+    );
+    subscribers.push(console_subscriber);
+    events_ctx.used_superconsole = used_superconsole;
 
     if let Some(paths) = paths {
         let re_log_subscriber = ReLog::new(paths.isolation.clone());

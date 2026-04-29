@@ -469,6 +469,11 @@ pub struct EventsCtx {
     // which is a child cgroup created under the root cgroup (i.e. {root}/daemon) and is only
     // available when daemon cgroup mode is enabled.
     pub cgroup_path_of_buck2_daemon: Option<String>,
+    /// Whether a superconsole was actually constructed for this command.
+    /// Set by `streaming.rs` from the authoritative answer returned by
+    /// `get_console_with_root`. Defaults to `false` for non-streaming entry
+    /// points (e.g. log replay) that don't go through that path.
+    pub used_superconsole: bool,
 }
 
 impl EventsCtx {
@@ -484,6 +489,7 @@ impl EventsCtx {
             command_report_path: None,
             log_invocation_record: true,
             cgroup_path_of_buck2_daemon: None,
+            used_superconsole: false,
         }
     }
 

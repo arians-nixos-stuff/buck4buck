@@ -206,7 +206,7 @@ impl StreamingCommand for InstallCommand {
             )
             .await?;
         let console = self.common_opts.console_opts.final_console();
-        print_buck_ui_and_rating(&console, ctx, &self.common_opts.console_opts)?;
+        print_buck_ui_and_rating(&console, ctx, events_ctx.used_superconsole)?;
 
         match response {
             CommandOutcome::Success(_) => {

@@ -138,7 +138,9 @@ impl BuckSubcommand for ReplayCommand {
                 start_paused,
             )
             .await?;
-            let console = get_console_with_root(
+            // Replay doesn't surface the build-speed rating prompt, so we
+            // don't need the `used_superconsole` flag from get_console_with_root.
+            let (console, _used_superconsole) = get_console_with_root(
                 invocation.trace_id,
                 console_opts.console_type,
                 ctx.verbosity,

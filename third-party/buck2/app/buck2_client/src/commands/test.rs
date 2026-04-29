@@ -404,7 +404,7 @@ impl StreamingCommand for TestCommand {
             console.print_error(&format!("{} BUILDS FAILED", statuses.build_errors))?;
         }
 
-        print_buck_ui_and_rating(&console, ctx, &self.common_opts.console_opts)?;
+        print_buck_ui_and_rating(&console, ctx, events_ctx.used_superconsole)?;
 
         let mut line = Line::default();
         line.push(Span::new_unstyled_lossy("Tests finished: "));

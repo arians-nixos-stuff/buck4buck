@@ -190,7 +190,7 @@ impl StreamingCommand for RunCommand {
             None
         };
 
-        print_buck_ui_and_rating(&console, ctx, &self.common_opts.console_opts)?;
+        print_buck_ui_and_rating(&console, ctx, events_ctx.used_superconsole)?;
         print_build_succeeded(&console, ctx, extra)?;
 
         // Special case for recursive invocations of buck; `BUCK2_WRAPPER` is set by wrapper scripts that execute

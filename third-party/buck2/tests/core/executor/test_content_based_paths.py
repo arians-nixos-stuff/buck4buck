@@ -546,11 +546,8 @@ async def test_resolve_promise_artifact(
 async def test_pass_cbp_promise_artifact_to_anon_target(
     buck: Buck,
 ) -> None:
-    await expect_failure(
-        buck.build(
-            "root//:pass_cbp_promise_to_anon_target",
-        ),
-        stderr_regex="Artifact promise resolved to artifact that uses content based paths",
+    await buck.build(
+        "root//:pass_cbp_promise_to_anon_target",
     )
 
 

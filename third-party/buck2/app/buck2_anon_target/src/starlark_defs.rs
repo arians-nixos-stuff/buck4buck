@@ -356,7 +356,7 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
             artifact.declaration_location.dupe(),
             promise,
             artifact.short_path.clone(),
-            artifact.has_content_based_path,
+            true,
         ))
     }
 }

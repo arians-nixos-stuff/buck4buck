@@ -484,7 +484,6 @@ impl Buck {
     {
         let mut cmd = self.command_without_config(subcommands);
         cmd.args([
-            CLIENT_METADATA_RUST_PROJECT,
             "-c=rust.rust_project_build=true",
             // Buck owner() queries stop at the innermost BUCK file unless
             // package_boundary_exceptions is set.
@@ -528,6 +527,7 @@ impl Buck {
             .env_remove("RUST_LIB_BACKTRACE");
 
         cmd.args(["--isolation-dir", ".rust-analyzer"]);
+        cmd.arg(CLIENT_METADATA_RUST_PROJECT);
         cmd.args(subcommands);
         cmd.args(["--oncall", "rust_devx"]);
 

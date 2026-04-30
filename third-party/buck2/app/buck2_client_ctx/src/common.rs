@@ -261,8 +261,13 @@ impl CommonBuildConfigurationOptions {
             name: &str,
             matches: BuckArgMatches<'a>,
         ) -> buck2_error::Result<impl Iterator<Item = (usize, &'a T)> + use<'a, T>> {
-            let indices = matches.inner.indices_of(name);
-            let indices = indices.unwrap_or_default();
+            let indices: Vec<usize> = if collection.is_empty() {
+                Vec::new()
+            } else {
+                let indices = matches.inner.indices_of(name);
+                let indices = indices.unwrap_or_default();
+                indices.into_iter().collect()
+            };
             if indices.len() != collection.len() {
                 return Err(buck2_error::Error::from(IndicesLengthMismatchError {
                     flag_name: name.to_owned(),
@@ -700,6 +705,30 @@ mod tests {
                 )),
             ]
         );
+        Ok(())
+    }
+
+    #[test]
+    fn test_config_overrides_with_default_opts_and_unregistered_args() -> buck2_error::Result<()> {
+        use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+        use buck2_fs::working_dir::AbsWorkingDir;
+
+        use crate::immediate_config::ImmediateConfigContext;
+
+        let cwd = if cfg!(windows) {
+            AbsWorkingDir::unchecked_new(AbsNormPathBuf::new("C:\\tmp".into()).unwrap())
+        } else {
+            AbsWorkingDir::unchecked_new(AbsNormPathBuf::new("/tmp".into()).unwrap())
+        };
+        let immediate_ctx = ImmediateConfigContext::new(&cwd);
+
+        let opts = CommonBuildConfigurationOptions::default();
+        let argv = ExpandedArgvBuilder::new().build();
+        let clap = clap::ArgMatches::default();
+        let matches = BuckArgMatches::from_clap(&clap, &argv);
+
+        let overrides = opts.config_overrides(matches, &immediate_ctx, &cwd)?;
+        assert!(overrides.is_empty());
         Ok(())
     }
 }

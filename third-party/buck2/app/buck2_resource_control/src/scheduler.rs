@@ -28,10 +28,32 @@ use crate::cgroup::EffectiveResourceConstraints;
 use crate::memory_tracker::MemoryReading;
 use crate::scheduler::event::EventSenderState;
 use crate::scheduler::event::ResourceControlEventMostly;
+use crate::scheduler::forecast::InflatedCurrentPressureForecast;
+use crate::scheduler::forecast::PressureForecast;
+use crate::scheduler::suspend_timing::SpreadHalfSuspendTiming;
+use crate::scheduler::suspend_timing::SuspendCandidate;
+use crate::scheduler::suspend_timing::SuspendTiming;
 use crate::scheduler::timeseries::Timeseries;
 
 mod event;
+mod forecast;
+mod suspend_timing;
 mod timeseries;
+
+const OOMD_THRESHOLD: f64 = 60.0;
+
+/// Configuration for experimental variations to this algorithm.
+///
+/// This remains as the hook for parsing the external variant integer into concrete algorithm
+/// choices, but the actual settings now live in dedicated forecasting and suspend-timing
+/// abstractions.
+struct ExperimentalAlgoVariant;
+
+impl ExperimentalAlgoVariant {
+    fn new(_config: Option<u8>) -> Self {
+        Self
+    }
+}
 
 /// Some information about the scene used for logging only
 #[derive(Debug)]
@@ -108,67 +130,6 @@ impl SceneId {
 #[derive(Debug, Clone, Copy, Dupe, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) struct SceneIdRef(u64);
 
-/// Configuration for experimental variations to this algorithm
-///
-/// This type is optimized for making it easy to inject and test changes. However, it should not be
-/// used for any settings that will be available permanently - if some configurability in here
-/// should be made permanent, it should be graduated to a proper config elsewhere.
-struct ExperimentalAlgoVariant {
-    oomd_threshold: f64,
-    future_pressure_mode: FuturePressureMode,
-    kill_timing_mode: KillTimingMode,
-}
-
-#[derive(Clone, Copy)]
-enum FuturePressureMode {
-    /// `min((100 + current) / 2, current * 1.5)` - the original formula
-    Original,
-    /// `current` - no inflation, assume pressure stays where it is
-    NoInflation,
-}
-
-#[derive(Clone, Copy)]
-enum KillTimingMode {
-    /// Spread kills evenly from now to predicted OOM: `interval = time / scenes`
-    SpreadAll,
-    /// Spread kills across half the scenes: `interval = time / ceil(scenes / 2)`
-    SpreadHalf,
-    /// Fixed 3-second kill cadence, only start killing when close to OOM
-    AnchoredCadence,
-}
-
-impl ExperimentalAlgoVariant {
-    fn new(config: Option<u8>) -> Self {
-        match config {
-            // Control: current algorithm
-            None | Some(0) => Self {
-                oomd_threshold: 40.0,
-                future_pressure_mode: FuturePressureMode::Original,
-                kill_timing_mode: KillTimingMode::SpreadAll,
-            },
-            // Variant 1: fix OOMd threshold only
-            Some(1) => Self {
-                oomd_threshold: 60.0,
-                future_pressure_mode: FuturePressureMode::Original,
-                kill_timing_mode: KillTimingMode::SpreadAll,
-            },
-            // Variant 2: fix threshold + slower kill cadence
-            Some(2) => Self {
-                oomd_threshold: 60.0,
-                future_pressure_mode: FuturePressureMode::Original,
-                kill_timing_mode: KillTimingMode::SpreadHalf,
-            },
-            // Variant 3: maximally optimistic
-            Some(3) => Self {
-                oomd_threshold: 60.0,
-                future_pressure_mode: FuturePressureMode::NoInflation,
-                kill_timing_mode: KillTimingMode::AnchoredCadence,
-            },
-            Some(v) => panic!("Unknown experimental algo variant: {}", v),
-        }
-    }
-}
-
 /// A scene is the unit of work that the scheduler manages.
 ///
 /// You should typically think of this as an action, but in principle it might be anything that buck
@@ -205,8 +166,10 @@ enum CurrentIntent {
 
 pub(crate) struct Scheduler {
     enable_suspension: bool,
-    experimental_algo_variant: ExperimentalAlgoVariant,
+    _experimental_algo_variant: ExperimentalAlgoVariant,
     preferred_action_suspend_strategy: ActionSuspendStrategy,
+    pressure_forecast: Box<dyn PressureForecast>,
+    suspend_timing: Box<dyn SuspendTiming>,
     /// Currently running and suspended scenes
     ///
     /// A scene is guaranteed to exist in exactly one of the two lists. Once completed a scene is
@@ -240,7 +203,8 @@ pub(crate) struct Scheduler {
     /// At any given time, we're either considering increasing or decreasing parallelism. This
     /// indicates which.
     current_intent: CurrentIntent,
-    last_correction_time: Instant,
+    /// Tracks wake-side hysteresis only. Suspend timing maintains its own state.
+    last_parallelism_increase_time: Instant,
     /// Current best estimate for the maximum amount of memory we can use.
     ///
     /// This is approximately computed as the total memory in use by buck the last time we saw
@@ -274,10 +238,8 @@ impl Scheduler {
                 resource_control_config.experimental_suspension_algo_variant,
             )
         } else {
-            // If suspension is disabled don't compute the variant - this is somewhat important,
-            // because suspension might have been disabled because of a algo version mismatch, in
-            // which case it may be the case that the variant that was passed makes no sense to this
-            // version of buck
+            // If suspension is disabled don't compute the variant. This preserves the existing
+            // behavior where suspension can be disabled because of an algorithm version mismatch.
             ExperimentalAlgoVariant::new(None)
         };
 
@@ -285,6 +247,8 @@ impl Scheduler {
             enable_suspension,
             experimental_algo_variant,
             resource_control_config.preferred_action_suspend_strategy,
+            Box::new(InflatedCurrentPressureForecast),
+            Box::new(SpreadHalfSuspendTiming::new()),
             effective_resource_constraints,
             system_memory_max,
             daemon_id,
@@ -296,6 +260,8 @@ impl Scheduler {
         enable_suspension: bool,
         experimental_algo_variant: ExperimentalAlgoVariant,
         preferred_action_suspend_strategy: ActionSuspendStrategy,
+        pressure_forecast: Box<dyn PressureForecast>,
+        suspend_timing: Box<dyn SuspendTiming>,
         effective_resource_constraints: EffectiveResourceConstraints,
         system_memory_max: u64,
         daemon_id: &DaemonId,
@@ -317,12 +283,14 @@ impl Scheduler {
 
         Self {
             enable_suspension,
-            experimental_algo_variant,
+            _experimental_algo_variant: experimental_algo_variant,
             preferred_action_suspend_strategy,
+            pressure_forecast,
+            suspend_timing,
             running_scenes: Vec::new(),
             suspended_scenes: VecDeque::new(),
             current_intent: CurrentIntent::Increase,
-            last_correction_time: now,
+            last_parallelism_increase_time: now,
             estimated_memory_cap,
             allprocs_memory_current: Timeseries::new(Duration::from_secs(60), now, 0.0),
             allprocs_memory_pressure: Timeseries::new(Duration::from_secs(60), now, 0.0),
@@ -334,15 +302,12 @@ impl Scheduler {
 
     #[cfg(test)]
     pub(crate) fn testing_new(now: Instant) -> Self {
-        Self::testing_new_with_variant(now, Some(1))
-    }
-
-    #[cfg(test)]
-    pub(crate) fn testing_new_with_variant(now: Instant, variant: Option<u8>) -> Self {
         Self::new(
             true,
-            ExperimentalAlgoVariant::new(variant),
+            ExperimentalAlgoVariant::new(None),
             ActionSuspendStrategy::KillAndRetry,
+            Box::new(InflatedCurrentPressureForecast),
+            Box::new(SpreadHalfSuspendTiming::new()),
             EffectiveResourceConstraints::default(),
             1_000_000, // System memory max
             &DaemonId::new(),
@@ -497,7 +462,7 @@ impl Scheduler {
                     < 5.0
                 {
                     self.current_intent = CurrentIntent::Increase;
-                    self.last_correction_time = now;
+                    self.last_parallelism_increase_time = now;
                 }
             }
             CurrentIntent::Increase => {
@@ -507,7 +472,7 @@ impl Scheduler {
                     > 10.0
                 {
                     self.current_intent = CurrentIntent::Decrease;
-                    self.last_correction_time = now;
+                    self.suspend_timing.on_enter_decrease_mode(now);
                 }
             }
         }
@@ -518,15 +483,11 @@ impl Scheduler {
 
         // Update dynamic tags based on current state
         {
-            // The real OOMd threshold is 60% avg60. If we observe avg60 exceeding this and
-            // we're still alive, that's useful data - it means OOMd didn't kill us when our
-            // model predicted it would.
-            const REAL_OOMD_THRESHOLD: f64 = 60.0;
             let avg60 = self
                 .allprocs_memory_pressure
                 .average_over_last(Duration::from_secs(60));
             let mut tags = self.base_tags.clone();
-            if avg60 > REAL_OOMD_THRESHOLD {
+            if avg60 > OOMD_THRESHOLD {
                 tags.push("expected_oom_kill".to_owned());
             }
             self.event_sender_state.set_tags(tags);
@@ -558,99 +519,68 @@ impl Scheduler {
             return;
         }
 
-        let this_kill_interval = {
-            // We have to decide whether or not to kill an action now, or wait a bit longer.
-            //
-            // To understand how we make this decision, let's first review what oomd does: It monitors
-            // the memory pressure average over the last 60 seconds and kills if that exceeds some
-            // configured threshold. So our job is to stay under that.
-            const PRESUMED_OOMD_LOOKBACK: Duration = Duration::from_secs(60);
-            let oomd_threshold = self.experimental_algo_variant.oomd_threshold;
-            // We do this by first predicting what we think our pressure in the future will be.
-            //
-            // Start with our pressure in the recent past
-            let approx_current_pressure = self
-                .allprocs_memory_pressure
-                .average_over_last(Duration::from_secs(10));
-            // And take an educated guess about how much it's likely to increase.
-            let estimated_future_pressure =
-                match self.experimental_algo_variant.future_pressure_mode {
-                    FuturePressureMode::Original => f64::min(
-                        // Halfway between current value and max
-                        (100.0 + approx_current_pressure) / 2.0,
-                        approx_current_pressure * 1.5,
-                    ),
-                    FuturePressureMode::NoInflation => approx_current_pressure,
-                };
-            // We now ask: If our pressure were to suddenly jump to this level and remain there
-            // indefinitely, how long would we have until we get OOM killed?
-            let Some(estimated_point_of_oom_kill) = self
-                .allprocs_memory_pressure
-                .predict_average_over_last_values(PRESUMED_OOMD_LOOKBACK, |_| {
-                    estimated_future_pressure
-                })
-                .filter(|(_, expected_average_pressure)| {
-                    *expected_average_pressure > oomd_threshold
-                })
-                .map(|x| x.0)
-                .next()
-            else {
-                // We don't anticipate we're in danger of being OOM killed
-                return;
-            };
-            let estimated_time_till_oom_kill = estimated_point_of_oom_kill - now;
-            // Choose the kill frequency based on the configured timing mode
-            match self.experimental_algo_variant.kill_timing_mode {
-                KillTimingMode::SpreadAll => {
-                    // Spread kills evenly from now to predicted OOM
-                    estimated_time_till_oom_kill.div_f64(self.running_scenes.len() as f64)
-                }
-                KillTimingMode::SpreadHalf => {
-                    // Spread kills across half the scenes (rounded up)
-                    let divisor = self.running_scenes.len().div_ceil(2);
-                    estimated_time_till_oom_kill.div_f64(divisor as f64)
-                }
-                KillTimingMode::AnchoredCadence => {
-                    // Fixed 3-second cadence, but only start killing when close to OOM
-                    let cadence = Duration::from_secs(3);
-                    let danger_zone = cadence * self.running_scenes.len() as u32;
-                    if estimated_time_till_oom_kill > danger_zone {
-                        return;
-                    }
-                    cadence
-                }
-            }
+        // We have to decide whether or not to kill an action now, or wait a bit longer.
+        //
+        // To understand how we make this decision, let's first review what oomd does: It monitors
+        // the memory pressure average over the last 60 seconds and kills if that exceeds some
+        // configured threshold. Our job is to stay under that.
+        //
+        // We divide this decision into two steps. First, we compute based on recent memory
+        // pressure, an estimate of how long it will be until we will be OOM killed
+        let Some(estimated_point_of_oom_kill) = self.pressure_forecast.estimated_point_of_oom_kill(
+            &self.allprocs_memory_pressure,
+            now,
+            OOMD_THRESHOLD,
+        ) else {
+            // We don't anticipate we're in danger of being OOM killed.
+            return;
         };
 
-        if now - self.last_correction_time < this_kill_interval {
+        // Then, based on the amount of time we have left and information about what's currently
+        // running and what we recently killed, we need to decide how many things to suspend now, if
+        // any.
+        let suspend_candidates = self
+            .running_scenes
+            .iter()
+            .skip(1)
+            .rev()
+            .map(|scene| SuspendCandidate {
+                memory_current: scene.scene.memory_current,
+            })
+            .collect::<Vec<_>>();
+        let suspends_to_issue = self.suspend_timing.suspends_to_issue(
+            now,
+            estimated_point_of_oom_kill,
+            &suspend_candidates,
+        );
+        if suspends_to_issue == 0 {
             return;
         }
 
-        self.last_correction_time = now;
+        for _ in 0..suspends_to_issue {
+            let cgroup = self.running_scenes.pop().unwrap();
 
-        // Length checked above
-        let cgroup = self.running_scenes.pop().unwrap();
+            let (suspended_cgroup, event_kind) = suspend_scene(cgroup, now);
 
-        let (suspended_cgroup, event_kind) = suspend_scene(cgroup, now);
+            // Push it onto the list before emitting the event so that the action count in the event is
+            // correct
+            self.suspended_scenes.push_front(suspended_cgroup);
+            let suspended_cgroup = self.suspended_scenes.front().unwrap();
 
-        // Push it onto the list before emitting the event so that the action count in the event is
-        // correct
-        self.suspended_scenes.push_front(suspended_cgroup);
-        let suspended_cgroup = self.suspended_scenes.front().unwrap();
-
-        self.event_sender_state.send_event(
-            event_kind,
-            Some(&suspended_cgroup.scene),
-            self.running_scenes.len() as u64,
-            self.suspended_scenes.len() as u64,
-        );
+            self.event_sender_state.send_event(
+                event_kind,
+                Some(&suspended_cgroup.scene),
+                self.running_scenes.len() as u64,
+                self.suspended_scenes.len() as u64,
+            );
+        }
     }
 
     fn maybe_increase_running_count(&mut self, now: Instant) {
         // We increase the running count at most once every 3 seconds since memory changes of
         // previous suspensions will take several seconds to take effect. This ensures that we don't
         // wake too quickly
-        if now - self.last_correction_time < Duration::from_secs(3) {
+        if now - self.last_parallelism_increase_time < Duration::from_secs(3) {
             return;
         }
 
@@ -680,7 +610,7 @@ impl Scheduler {
             return;
         }
 
-        self.last_correction_time = now;
+        self.last_parallelism_increase_time = now;
         self.wake(now)
     }
 
@@ -845,11 +775,6 @@ mod tests {
             (Scheduler::testing_new(now), Self(now))
         }
 
-        fn new_with_variant(variant: Option<u8>) -> (Scheduler, Self) {
-            let now = Instant::now();
-            (Scheduler::testing_new_with_variant(now, variant), Self(now))
-        }
-
         fn secs(&self, n: u64) -> Instant {
             self.0 + Duration::from_secs(n)
         }
@@ -916,8 +841,9 @@ mod tests {
     async fn test_freeze() -> buck2_error::Result<()> {
         let (mut scheduler, timeline) = TestTimeline::new();
 
-        // First create 60 seconds of pressure. 80 is high enough that even with threshold=60,
-        // the predicted time-to-OOM is short enough to trigger a kill within the test's timeline.
+        // First create 60 seconds of pressure. 80 is high enough that with the baseline
+        // threshold=60 and the slower variant-2-style cadence, a kill happens once we have
+        // another 40 seconds of observed pressure after entering decrease mode.
         let memory_reading = MemoryReading {
             allprocs_memory_current: 10000,
             allprocs_swap_current: 0,
@@ -962,10 +888,10 @@ mod tests {
                 .add(scene1.as_ref(), 2)
                 .add(scene2.as_ref(), 3)
                 .build(),
-            timeline.secs(80),
+            timeline.secs(100),
         );
 
-        let cgroup_1_res = scheduler.scene_finished(scene1, timeline.secs(90));
+        let cgroup_1_res = scheduler.scene_finished(scene1, timeline.secs(110));
         assert!(cgroup_1_res.suspend_duration.is_none());
 
         let memory_reading_2 = MemoryReading {
@@ -979,10 +905,10 @@ mod tests {
         scheduler.update(
             memory_reading_2,
             UpdateBuilder::new().build(),
-            timeline.secs(95),
+            timeline.secs(115),
         );
 
-        let cgroup_2_res = scheduler.scene_finished(scene2, timeline.secs(100));
+        let cgroup_2_res = scheduler.scene_finished(scene2, timeline.secs(120));
         assert_eq!(cgroup_2_res.suspend_duration, Some(Duration::from_secs(10)));
 
         Ok(())
@@ -997,24 +923,7 @@ mod tests {
         durations_and_levels: &[(u64, f64)],
         expect_kill: bool,
     ) {
-        multi_pressure_level_test_with_variant(
-            pre_start_durations_and_levels,
-            durations_and_levels,
-            expect_kill,
-            None, // uses default variant (variant 1)
-        )
-    }
-
-    fn multi_pressure_level_test_with_variant(
-        pre_start_durations_and_levels: &[(u64, f64)],
-        durations_and_levels: &[(u64, f64)],
-        expect_kill: bool,
-        variant: Option<u8>,
-    ) {
-        let (mut scheduler, timeline) = match variant {
-            Some(v) => TestTimeline::new_with_variant(Some(v)),
-            None => TestTimeline::new(),
-        };
+        let (mut scheduler, timeline) = TestTimeline::new();
 
         let mut past = 0;
         for (duration, level) in pre_start_durations_and_levels.iter().copied() {
@@ -1114,50 +1023,17 @@ mod tests {
         two_pressure_level_test(50.0, 50, true);
     }
 
-    /// Demonstrate that the control (threshold=40) kills at moderate pressure where variant 1
-    /// (threshold=60) does not. Pressure=35 has future estimate min(67.5, 52.5) = 52.5, which
-    /// exceeds 40 (control kills) but not 60 (variant 1 does not kill).
     #[test]
-    fn test_threshold_difference() {
-        let scenario = &[(60, 0.0), (60, 35.0)];
-        // Control (threshold=40): kills
-        multi_pressure_level_test_with_variant(&[], scenario, true, Some(0));
-        // Variant 1 (threshold=60): does not kill
-        multi_pressure_level_test_with_variant(&[], scenario, false, Some(1));
-    }
-
-    /// Demonstrate that variant 2 (SpreadHalf) kills later than variant 1 (SpreadAll) at the
-    /// same pressure. With 2 running scenes, SpreadHalf divides by ceil(2/2)=1 instead of 2,
-    /// doubling the kill interval.
-    #[test]
-    fn test_spread_half_kills_later() {
-        // At pressure=60, future estimate = min(80, 90) = 80 > 60. Both variants predict OOM,
-        // but variant 2 spaces kills further apart.
+    fn test_baseline_kills_later_than_twenty_seconds_at_pressure_sixty() {
+        // At pressure=60, future estimate = min(80, 90) = 80 > 60. The baseline uses the old
+        // variant 2 cadence and therefore does not kill within 20 seconds.
         let scenario = &[(60, 0.0), (20, 60.0)];
-        // Variant 1 (SpreadAll): kills within 20 seconds
-        multi_pressure_level_test_with_variant(&[], scenario, true, Some(1));
-        // Variant 2 (SpreadHalf): does not kill within 20 seconds
-        multi_pressure_level_test_with_variant(&[], scenario, false, Some(2));
+        multi_pressure_level_test(&[], scenario, false);
     }
 
-    /// Demonstrate that variant 3 (maximally optimistic: no inflation + anchored cadence) waits
-    /// much longer than variant 1 before killing. At pressure=50, variant 1 inflates to 75 and
-    /// kills early, while variant 3 uses 50 as-is and only kills close to the OOM deadline.
     #[test]
-    fn test_maximally_optimistic_waits_longer() {
-        // Pressure=50 sustained for 30 seconds after 60 seconds of calm
-        let scenario = &[(60, 0.0), (30, 50.0)];
-        // Variant 1: kills (inflated future pressure 75 > 60, spread evenly)
-        multi_pressure_level_test_with_variant(&[], scenario, true, Some(1));
-        // Variant 3: does not kill within 30 seconds (no inflation, anchored cadence waits
-        // until close to OOM)
-        multi_pressure_level_test_with_variant(&[], scenario, false, Some(3));
-    }
-
-    /// Variant 3 does still eventually kill when pressure is very high and sustained.
-    #[test]
-    fn test_maximally_optimistic_still_kills() {
+    fn test_baseline_still_kills_for_very_high_sustained_pressure() {
         let scenario = &[(60, 0.0), (60, 80.0)];
-        multi_pressure_level_test_with_variant(&[], scenario, true, Some(3));
+        multi_pressure_level_test(&[], scenario, true);
     }
 }

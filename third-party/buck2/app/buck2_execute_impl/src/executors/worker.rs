@@ -509,10 +509,7 @@ impl WorkerClient {
 
     async fn execute(&mut self, request: ExecuteCommand) -> buck2_error::Result<ExecuteResponse> {
         match self {
-            Self::Single(client) => Ok(client
-                .execute(request)
-                .await
-                .map(|response| response.into_inner())?),
+            Self::Single(client) => Self::execute_with_retry(client, request).await,
             Self::Stream {
                 ids,
                 stream,
@@ -535,6 +532,36 @@ impl WorkerClient {
                 }
             }
         }
+    }
+
+    async fn execute_with_retry(
+        client: &mut worker_client::WorkerClient<Channel>,
+        request: ExecuteCommand,
+    ) -> buck2_error::Result<ExecuteResponse> {
+        use tokio_retry::strategy::ExponentialBackoff;
+
+        let retry_delays = ExponentialBackoff::from_millis(100)
+            .max_delay(Duration::from_millis(500))
+            .take(5);
+
+        let mut last_err = None;
+        for delay in std::iter::once(Duration::ZERO).chain(retry_delays) {
+            if !delay.is_zero() {
+                tokio::time::sleep(delay).await;
+            }
+            match client.execute(request.clone()).await {
+                Ok(response) => return Ok(response.into_inner()),
+                Err(status) if status.code() == tonic::Code::Unavailable => {
+                    tracing::warn!("Worker connection unavailable, retrying: {:?}", status);
+                    last_err = Some(status);
+                }
+                Err(status) => return Err(status.into()),
+            }
+        }
+
+        Err(last_err
+            .expect("retry loop must have run at least once")
+            .into())
     }
 }
 
@@ -627,7 +654,6 @@ impl WorkerHandle {
                                 "Error sending ExecuteCommand to worker: {:?}, see worker logs:\n{}\n{}",
                                 err, self.std_redirects.stdout, self.std_redirects.stderr,
                             )),
-                            // stdout/stderr logs for worker are for multiple commands, probably do not want to dump contents here
                             vec![],
                             vec![],
                         )
@@ -653,5 +679,151 @@ impl WorkerHandle {
             cgroup_result: None,
             orphan_processes: Vec::new(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+    use std::sync::atomic::AtomicU32;
+    use std::sync::atomic::Ordering;
+
+    use buck2_worker_proto::ExecuteCommand;
+    use buck2_worker_proto::ExecuteEvent;
+    use buck2_worker_proto::ExecuteResponse;
+    use buck2_worker_proto::worker_client;
+    use buck2_worker_proto::worker_server::Worker;
+    use buck2_worker_proto::worker_server::WorkerServer;
+    use tonic::Request;
+    use tonic::Response;
+    use tonic::Status;
+    use tonic::transport::Channel;
+    use tonic::transport::Server;
+
+    use super::WorkerClient;
+
+    struct MockWorker {
+        attempts: Arc<AtomicU32>,
+        fail_until: u32,
+        fail_code: tonic::Code,
+    }
+
+    #[tonic::async_trait]
+    impl Worker for MockWorker {
+        async fn execute(
+            &self,
+            _req: Request<ExecuteCommand>,
+        ) -> Result<Response<ExecuteResponse>, Status> {
+            let n = self.attempts.fetch_add(1, Ordering::SeqCst);
+            if n < self.fail_until {
+                Err(Status::new(self.fail_code, "test error"))
+            } else {
+                Ok(Response::new(ExecuteResponse {
+                    exit_code: 0,
+                    stderr: String::new(),
+                    timed_out_after_s: None,
+                }))
+            }
+        }
+
+        async fn exec(
+            &self,
+            _req: Request<tonic::Streaming<ExecuteEvent>>,
+        ) -> Result<Response<ExecuteResponse>, Status> {
+            unimplemented!()
+        }
+    }
+
+    async fn start_mock_server(
+        worker: MockWorker,
+    ) -> (
+        worker_client::WorkerClient<Channel>,
+        tokio::task::JoinHandle<()>,
+    ) {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let handle = tokio::spawn(async move {
+            Server::builder()
+                .add_service(WorkerServer::new(worker))
+                .serve_with_incoming(tokio_stream::wrappers::TcpListenerStream::new(listener))
+                .await
+                .unwrap();
+        });
+        let client = worker_client::WorkerClient::connect(format!("http://{}", addr))
+            .await
+            .unwrap();
+        (client, handle)
+    }
+
+    fn empty_request() -> ExecuteCommand {
+        ExecuteCommand {
+            argv: vec![],
+            env: vec![],
+            timeout_s: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn test_retry_succeeds_immediately() {
+        let attempts = Arc::new(AtomicU32::new(0));
+        let (mut client, _server) = start_mock_server(MockWorker {
+            attempts: attempts.clone(),
+            fail_until: 0,
+            fail_code: tonic::Code::Unavailable,
+        })
+        .await;
+        let result = WorkerClient::execute_with_retry(&mut client, empty_request()).await;
+        assert!(result.is_ok());
+        assert_eq!(attempts.load(Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test]
+    async fn test_retry_recovers_after_transient_unavailable() {
+        let attempts = Arc::new(AtomicU32::new(0));
+        let (mut client, _server) = start_mock_server(MockWorker {
+            attempts: attempts.clone(),
+            fail_until: 1,
+            fail_code: tonic::Code::Unavailable,
+        })
+        .await;
+        let result = WorkerClient::execute_with_retry(&mut client, empty_request()).await;
+        assert!(result.is_ok());
+        assert_eq!(attempts.load(Ordering::SeqCst), 2);
+    }
+
+    #[tokio::test]
+    async fn test_retry_does_not_retry_non_unavailable_errors() {
+        let attempts = Arc::new(AtomicU32::new(0));
+        let (mut client, _server) = start_mock_server(MockWorker {
+            attempts: attempts.clone(),
+            fail_until: 100,
+            fail_code: tonic::Code::Internal,
+        })
+        .await;
+        let result = WorkerClient::execute_with_retry(&mut client, empty_request()).await;
+        assert!(result.is_err());
+        assert_eq!(
+            attempts.load(Ordering::SeqCst),
+            1,
+            "non-Unavailable errors must not be retried"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_retry_gives_up_after_max_retries() {
+        let attempts = Arc::new(AtomicU32::new(0));
+        let (mut client, _server) = start_mock_server(MockWorker {
+            attempts: attempts.clone(),
+            fail_until: 100,
+            fail_code: tonic::Code::Unavailable,
+        })
+        .await;
+        let result = WorkerClient::execute_with_retry(&mut client, empty_request()).await;
+        assert!(result.is_err());
+        assert_eq!(
+            attempts.load(Ordering::SeqCst),
+            6,
+            "initial attempt + 5 retries"
+        );
     }
 }

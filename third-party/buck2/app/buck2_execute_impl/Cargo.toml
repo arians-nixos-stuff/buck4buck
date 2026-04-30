@@ -28,6 +28,7 @@ remote_execution = { workspace = true }
 rusqlite = { workspace = true }
 starlark_map = { workspace = true }
 tokio = { workspace = true }
+tokio-retry = "0.3"
 tokio-stream = { workspace = true }
 tonic = { workspace = true }
 tracing = { workspace = true }

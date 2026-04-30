@@ -66,6 +66,13 @@ async def test_success_message_printed(buck: Buck) -> None:
     assert_occurrences("\x1b[38;5;10mBUILD SUCCEEDED\x1b[39m", results.stderr, 1)
 
 
+@buck_test(inplace=False, data_dir="pass")
+async def test_success_message_suppressed_at_v0(buck: Buck) -> None:
+    results = await buck.build("//:abc", "-v0", "--console=simplenotty")
+
+    assert "BUILD SUCCEEDED" not in results.stderr
+
+
 @buck_test(inplace=False, data_dir="failing")
 async def test_multiple_errors_print_with_simple_console(buck: Buck) -> None:
     e = await expect_failure(

@@ -212,7 +212,7 @@ impl StreamingCommand for InstallCommand {
             CommandOutcome::Success(_) => {
                 if self.patterns.is_empty() {
                     console.print_warning("NO BUILD TARGET PATTERNS SPECIFIED")?;
-                } else {
+                } else if ctx.verbosity.print_success_message() {
                     console.print_success("INSTALL SUCCEEDED")?;
                 }
                 ExitResult::success()

@@ -680,6 +680,26 @@ impl CgroupMinimal {
             return None;
         }
 
+        // Skip if `systemd-run --user --slice-inherit` doesn't work here (e.g. CI has no
+        // user systemd session). `prep_cgroup.sh` runs the same command and would panic.
+        let probe_ok = background_command("systemd-run")
+            .args([
+                "--user",
+                "--slice-inherit",
+                "--scope",
+                "--quiet",
+                "--",
+                "/bin/true",
+            ])
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false);
+        if !probe_ok {
+            return None;
+        }
+
         let prep_script = std::env::var("PREP_CGROUP_SCRIPT").unwrap();
         let output = background_command(&prep_script)
             .stdout(std::process::Stdio::piped())

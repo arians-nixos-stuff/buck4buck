@@ -27,13 +27,13 @@ arc lint -a
 arc f
 ```
 
-Buck2 has integration tests at `tests/` and standard Rust unittests.
+Buck2 has standard Rust unittests and integration tests at `tests/core`.
 
 ```bash
 # Run an integration test
 buck2 test fbcode//buck2/tests/core/analysis:test_cmd_args
 # Discover more information about writing and executing integration tests
-cat tests/README.md
+cat tests/core/README.md
 # Run some unittests
 buck2 test fbcode//buck2/app/buck2_core:buck2_core
 ```

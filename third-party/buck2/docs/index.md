@@ -137,9 +137,6 @@ your project.
 
 <h3>For people developing Buck2</h3>
 
-- [Basic README](https://www.internalfb.com/code/fbsource/fbcode/buck2/README.md) -
-  how to get started, compile Buck2 and the basic workflows.
-- [Notes for Developers](developers/developers.fb.md) - more advanced workflows
-  and notes around debugging, profiling etc.
+- [See here](developers/basics.md) to get started.
 
 </FbInternalOnly>

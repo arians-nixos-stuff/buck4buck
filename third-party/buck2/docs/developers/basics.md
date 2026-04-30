@@ -104,3 +104,5 @@ buck2 build @fbcode//mode/opt fbcode//buck2:buck2 --out /tmp/buck2_dest
 # Build buck2 from source and run a command with it in a different isolation dir
 ./buck2.py build :foo
 ```
+
+Further information at [debugging.md](./debugging.md)

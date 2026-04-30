@@ -290,6 +290,12 @@ export const sidebars: SidebarsConfig = {
       label: 'Buck2 Developers',
       collapsed: false,
       items: [
+        'developers/basics',
+        'developers/debugging',
+        isInternal() ? 'developers/cargo_internally' : null,
+        isInternal() ? 'developers/debuggers_internally' : null,
+        isInternal() ? 'developers/version_bumps' : null,
+        isInternal() ? 'developers/working_with_re' : null,
         {
           type: 'category' as const,
           label: 'Architecture',
@@ -299,7 +305,6 @@ export const sidebars: SidebarsConfig = {
             'developers/architecture/buck1_vs_buck2',
           ],
         },
-        isInternal() ? 'developers/developers' : null,
         isInternal() ? 'developers/heap_profiling' : null,
         'developers/what-ran',
         {

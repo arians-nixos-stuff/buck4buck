@@ -112,7 +112,7 @@ impl NamedEventLogWriter {
             )) as EventLogWriter,
             Compression::Zstd => Box::new(ZstdEncoder::with_quality(
                 CountingReader::new(file, bytes_written),
-                async_compression::Level::Default,
+                async_compression::Level::Precise(9),
             )) as EventLogWriter,
         };
         Self {

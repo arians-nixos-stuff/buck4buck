@@ -25,6 +25,10 @@
 //! - `tree`:  K-ary tree of depth D, leaves depend on Buffer
 //! - `dense`: DAG where node i depends on nodes j in (i, i + dense_width], last node depends on
 //!            Buffer. With dense_width=0 (default), node i depends on all j > i.
+//!
+//! The `--shadows` parameter creates multiple independent copies of the graph
+//! that share the same Seed and Buffer keys. This multiplies the total number
+//! of nodes without changing the graph shape.
 
 use std::sync::OnceLock;
 use std::time::Duration;
@@ -93,6 +97,11 @@ struct Args {
     /// i < j < i + dense_width. 0 means unlimited (node i depends on all j > i).
     #[arg(long, default_value_t = 0)]
     dense_width: u32,
+
+    /// Number of independent copies of the graph. All copies share the same
+    /// Seed and Buffer keys but have separate GraphNode and Buffer instances.
+    #[arg(long, default_value_t = 1)]
+    shadows: u32,
 }
 
 impl Args {
@@ -113,6 +122,7 @@ impl Args {
 // --- Keys ---
 
 /// Injected root key. Changes each iteration to trigger invalidation.
+/// Shared across all shadow copies.
 #[derive(Clone, Debug, Display, Dupe, Eq, Hash, PartialEq, Allocative, Pagable)]
 #[display("Seed")]
 #[pagable_typetag(DiceKeyDyn)]
@@ -131,11 +141,11 @@ impl InjectedKey for Seed {
 }
 
 /// Depends on Seed but always returns 0. Absorbs the change so that
-/// downstream nodes see no value change.
+/// downstream nodes see no value change. Each shadow has its own Buffer.
 #[derive(Clone, Debug, Display, Dupe, Eq, Hash, PartialEq, Allocative, Pagable)]
-#[display("Buffer")]
+#[display("Buffer({})", _0)]
 #[pagable_typetag(DiceKeyDyn)]
-struct Buffer;
+struct Buffer(u32);
 
 #[async_trait]
 impl Key for Buffer {
@@ -161,11 +171,12 @@ impl Key for Buffer {
 }
 
 /// A node in the stress-test graph. Dependencies are determined by the
-/// configured shape (read from the global ARGS).
+/// configured shape (read from the global ARGS). The shadow field identifies
+/// which copy of the graph this node belongs to.
 #[derive(Clone, Debug, Display, Dupe, Eq, Hash, PartialEq, Allocative, Pagable)]
-#[display("Node({})", _0)]
+#[display("Node({}, shadow={})", _0, _1)]
 #[pagable_typetag(DiceKeyDyn)]
-struct GraphNode(u32);
+struct GraphNode(u32, u32);
 
 #[async_trait]
 impl Key for GraphNode {
@@ -177,29 +188,30 @@ impl Key for GraphNode {
         _cancellations: &CancellationContext,
     ) -> u32 {
         let args = ARGS.get().unwrap();
+        let shadow = self.1;
         match args.shape {
             Shape::Wide => {
                 if self.0 == 0 {
                     // Root: fan out to all other nodes.
                     ctx.compute_join(1..args.node_count, |ctx, i| {
                         async move {
-                            drop(ctx.compute(&GraphNode(i)).await);
+                            drop(ctx.compute(&GraphNode(i, shadow)).await);
                         }
                         .boxed()
                     })
                     .await;
                 } else {
                     // Leaf: depend on Buffer.
-                    drop(ctx.compute(&Buffer).await);
+                    drop(ctx.compute(&Buffer(shadow)).await);
                 }
             }
             Shape::Chain => {
                 if self.0 == args.node_count - 1 {
                     // End of chain: depend on Buffer.
-                    drop(ctx.compute(&Buffer).await);
+                    drop(ctx.compute(&Buffer(shadow)).await);
                 } else {
                     // Link: depend on next node.
-                    drop(ctx.compute(&GraphNode(self.0 + 1)).await);
+                    drop(ctx.compute(&GraphNode(self.0 + 1, shadow)).await);
                 }
             }
             Shape::Tree => {
@@ -210,14 +222,14 @@ impl Key for GraphNode {
                     let last_child = (first_child + args.branching).min(total);
                     ctx.compute_join(first_child..last_child, |ctx, i| {
                         async move {
-                            drop(ctx.compute(&GraphNode(i)).await);
+                            drop(ctx.compute(&GraphNode(i, shadow)).await);
                         }
                         .boxed()
                     })
                     .await;
                 } else {
                     // Leaf: depend on Buffer.
-                    drop(ctx.compute(&Buffer).await);
+                    drop(ctx.compute(&Buffer(shadow)).await);
                 }
             }
             Shape::Dense => {
@@ -228,13 +240,13 @@ impl Key for GraphNode {
                 };
                 if self.0 == args.node_count - 1 {
                     // Last node: depend on Buffer.
-                    drop(ctx.compute(&Buffer).await);
+                    drop(ctx.compute(&Buffer(shadow)).await);
                 } else {
                     // Depend on nodes in range (self.0+1)..end.
                     // Last dep in range also transitively reaches Buffer.
                     ctx.compute_join(self.0 + 1..end, |ctx, i| {
                         async move {
-                            drop(ctx.compute(&GraphNode(i)).await);
+                            drop(ctx.compute(&GraphNode(i, shadow)).await);
                         }
                         .boxed()
                     })
@@ -280,10 +292,13 @@ async fn main() {
     let total = args.total_nodes();
     eprintln!("Config: {:?}", args);
     eprintln!(
-        "Shape: {:?}, graph nodes: {}, total DICE keys: {} (graph + Buffer + Seed)",
+        "Shape: {:?}, graph nodes per shadow: {}, shadows: {}, total DICE keys: {} ({} graph + {} Buffer + 1 Seed)",
         args.shape,
         total,
-        total + 2
+        args.shadows,
+        total * args.shadows + args.shadows + 1,
+        total * args.shadows,
+        args.shadows,
     );
 
     let dice = Dice::builder().build(if args.detect_cycles {
@@ -292,20 +307,26 @@ async fn main() {
         DetectCycles::Disabled
     });
 
-    // Initial computation: populate the entire graph.
+    // Initial computation: populate the entire graph for all shadows in parallel.
     let start = Instant::now();
     {
         let mut updater = dice.updater();
         updater.changed_to(vec![(Seed, 0)]).unwrap();
         let mut ctx = updater.commit().await;
-        drop(ctx.compute(&GraphNode(0)).await);
+        ctx.compute_join(0..args.shadows, |ctx, s| {
+            async move {
+                drop(ctx.compute(&GraphNode(0, s)).await);
+            }
+            .boxed()
+        })
+        .await;
     }
     eprintln!(
         "Initial computation: {:.3}s\n",
         start.elapsed().as_secs_f64()
     );
 
-    // Invalidation iterations: change Seed, recompute root, measure cost.
+    // Invalidation iterations: change Seed, recompute all shadow roots, measure cost.
     let mut times = Vec::with_capacity(args.iterations as usize);
     let mut commit_times = Vec::with_capacity(args.iterations as usize);
     let mut compute_times = Vec::with_capacity(args.iterations as usize);
@@ -319,7 +340,13 @@ async fn main() {
         let commit_dur = t0.elapsed();
 
         let t1 = Instant::now();
-        drop(ctx.compute(&GraphNode(0)).await);
+        ctx.compute_join(0..args.shadows, |ctx, s| {
+            async move {
+                drop(ctx.compute(&GraphNode(0, s)).await);
+            }
+            .boxed()
+        })
+        .await;
         let compute_dur = t1.elapsed();
 
         let t2 = Instant::now();

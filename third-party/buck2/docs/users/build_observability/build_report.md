@@ -137,8 +137,9 @@ ConfiguredBuildReportEntry {
     # Enabled by setting `-c buck2.log_retained_analysis_memory_sketch=true`
     retained_analysis_memory_sketch: Optional[str],
 
-    # Metrics for this target. Represents the aggregated metrics for top level targets.
-    metrics: TargetBuildMetrics,
+    # Build metrics for this target. Represents the aggregated metrics for
+    # top-level targets. Omitted from the JSON when None.
+    build_metrics: Optional[TargetBuildMetrics],
 }
 
 AllTargetsBuildMetrics {
@@ -230,14 +231,14 @@ ActionError {
     # Digest of the action
     digest: str,
 
+    # Stringified hash of the same stringified error message that is provided by the action
+    error_content: str,
+
     # Stringified hash of the stderr of the action
-    stderr: str,
+    stderr_content: str,
 
     # Stringified hash of the stdout of the action
-    stdout: str,
-
-    # Stringified hash of the same stringified error message that is provided by the action
-    error: str,
+    stdout_content: str,
 
     # Optional list of error categorizations provided by an error handler which is invoked
     # in the event of a failed action, or an error message if the error handler failed.
@@ -275,18 +276,34 @@ ActionSubError {
     category: str,
 
     # The stringified hash of the extra message provided for the specific sub-error category.
-    message_content: str,
+    message_content: Optional[str],
 
-    # List of error locations, if any
-    locations: Optional[list[ActionErrorLocation]],
-}
-
-ActionErrorLocation {
     # File path where the error appeared, preferably either project-relative or absolute.
-    file: str,
+    file: Optional[str],
 
-    # Optional line number
-    line: Optional[u64]
+    # Line number
+    lnum: Optional[u64],
+
+    # End line (for multi-line spans)
+    end_lnum: Optional[u64],
+
+    # Column number
+    col: Optional[u64],
+
+    # End column (for ranges)
+    end_col: Optional[u64],
+
+    # Type of error (error, warning, info, etc.)
+    error_type: Optional[str],
+
+    # Numeric error code (e.g., 404, 500)
+    error_number: Optional[u64],
+
+    # Subcategory for finer-grained categorization
+    subcategory: Optional[str],
+
+    # Remediation steps for the error
+    remediation: Optional[str],
 }
 
 ArtifactInfoFile {
@@ -344,11 +361,9 @@ The build report currently has at least the following limitations:
     passed, this is a bug.
 1.  It is currently not generated when a non-existent package is specified on
     the command line. This is also a bug.
-1.  It cannot be requested for any buck2 command other than `build`
-1.  Errors do not contain any additional metadata outside of the error message.
-    This will be made available as such metadata is available in buck2.
-1.  The "failures" field is always empty. This will be changed under a
-    backcompat opt-in flag in the future.
+1.  The "failures" field is empty by default. To populate it, pass the
+    `fill-out-failures` option via `--build-report-options` (this exists for
+    buck1 backwards compatibility only; new code should not rely on it).
 
 Finally, it's worth raising that the concept of error deduplication has some
 fundamental limitations; if two targets both refer to the same non-existent

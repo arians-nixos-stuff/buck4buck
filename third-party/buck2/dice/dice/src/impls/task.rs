@@ -23,6 +23,7 @@ use crate::impls::task::dice::DiceTask;
 use crate::impls::task::dice::DiceTaskInternal;
 use crate::impls::task::handle::DiceTaskHandle;
 
+mod critical;
 pub(crate) mod dice;
 pub(crate) mod handle;
 pub(crate) mod promise;

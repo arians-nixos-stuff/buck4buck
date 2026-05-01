@@ -9,6 +9,7 @@ version = "0.0.0"
 allocative = { workspace = true }
 anyhow = "1.0.65"
 async-trait = "0.1.24"
+clap = { version = "4", features = ["derive"] }
 derive_more = { version = "1.0.0", features = ["full"] }
 dice_futures = { path = "../dice_futures" }
 dupe = { workspace = true }
@@ -16,6 +17,7 @@ futures = "0.3"
 gazebo = { workspace = true }
 pagable = { workspace = true }
 ref-cast = "1.0.0"
+tokio = { version = "1.5", features = ["full"] }
 
 dice = { path = "../dice" }
 dice_error = { path = "../dice_error" }
@@ -24,4 +26,3 @@ dice_error = { path = "../dice_error" }
 anyhow = "1.0.65"
 cast = "0.3.0"
 futures = "0.3"
-tokio = { version = "1.5", features = ["full"] }

@@ -1,0 +1,349 @@
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is dual-licensed under either the MIT license found in the
+ * LICENSE-MIT file in the root directory of this source tree or the Apache
+ * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+ * of this source tree. You may select, at your option, one of the
+ * above-listed licenses.
+ */
+
+//! Stress test for DICE graph invalidation that doesn't require recomputation.
+//!
+//! Scenario:
+//! 1. A `Seed` (InjectedKey) changes each iteration
+//! 2. A `Buffer` key depends on Seed but always produces the same value (0)
+//! 3. A large graph of `GraphNode` keys transitively depends on Buffer
+//!
+//! When Seed changes, DICE must walk the entire dirty graph to verify that
+//! nothing actually needs recomputation (because Buffer absorbs the change).
+//! This measures the cost of that invalidation walk.
+//!
+//! Supports multiple graph shapes via `--shape`:
+//! - `wide`:  Root depends on N-1 leaf nodes, each depending on Buffer
+//! - `chain`: Linear chain of N nodes ending at Buffer
+//! - `tree`:  K-ary tree of depth D, leaves depend on Buffer
+//! - `dense`: DAG where node i depends on nodes j in (i, i + dense_width], last node depends on
+//!            Buffer. With dense_width=0 (default), node i depends on all j > i.
+
+use std::sync::OnceLock;
+use std::time::Duration;
+use std::time::Instant;
+
+use allocative::Allocative;
+use async_trait::async_trait;
+use clap::Parser;
+use clap::ValueEnum;
+use derive_more::Display;
+use dice::DetectCycles;
+use dice::Dice;
+use dice::DiceComputations;
+use dice::DiceKeyDyn;
+use dice::InjectedKey;
+use dice::Key;
+use dice::NoValueSerialize;
+use dice_futures::cancellation::CancellationContext;
+use dupe::Dupe;
+use futures::FutureExt;
+use pagable::Pagable;
+use pagable::pagable_typetag;
+
+static ARGS: OnceLock<Args> = OnceLock::new();
+
+#[derive(Clone, Copy, Debug, ValueEnum)]
+enum Shape {
+    /// Root depends on N-1 leaf nodes, each depending on Buffer.
+    Wide,
+    /// Linear chain: node 0 -> 1 -> ... -> N-1 -> Buffer.
+    Chain,
+    /// K-ary tree of depth D. Leaves depend on Buffer.
+    Tree,
+    /// Dense DAG: node i depends on all j where i < j < i + dense_width.
+    /// Node N-1 depends on Buffer.
+    Dense,
+}
+
+#[derive(Parser, Debug, Clone, Copy)]
+struct Args {
+    /// Graph shape to stress test.
+    #[arg(long, value_enum, default_value_t = Shape::Dense)]
+    shape: Shape,
+
+    /// Number of graph nodes (for wide, chain, dense).
+    #[arg(long, default_value_t = 1000)]
+    node_count: u32,
+
+    /// Branching factor (for tree).
+    #[arg(long, default_value_t = 4)]
+    branching: u32,
+
+    /// Tree depth, i.e. number of edges from root to leaf (for tree).
+    #[arg(long, default_value_t = 6)]
+    depth: u32,
+
+    /// Number of invalidation iterations.
+    #[arg(long, default_value_t = 10)]
+    iterations: u32,
+
+    /// Enable DICE cycle detection.
+    #[arg(long, default_value_t = false)]
+    detect_cycles: bool,
+
+    /// Max children per node in dense shape. Node i depends on all j where
+    /// i < j < i + dense_width. 0 means unlimited (node i depends on all j > i).
+    #[arg(long, default_value_t = 0)]
+    dense_width: u32,
+}
+
+impl Args {
+    fn total_nodes(&self) -> u32 {
+        match self.shape {
+            Shape::Wide | Shape::Chain | Shape::Dense => self.node_count,
+            Shape::Tree => {
+                if self.branching <= 1 {
+                    self.depth + 1
+                } else {
+                    (self.branching.pow(self.depth + 1) - 1) / (self.branching - 1)
+                }
+            }
+        }
+    }
+}
+
+// --- Keys ---
+
+/// Injected root key. Changes each iteration to trigger invalidation.
+#[derive(Clone, Debug, Display, Dupe, Eq, Hash, PartialEq, Allocative, Pagable)]
+#[display("Seed")]
+#[pagable_typetag(DiceKeyDyn)]
+struct Seed;
+
+impl InjectedKey for Seed {
+    type Value = u32;
+
+    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
+        x == y
+    }
+
+    fn value_serialize() -> impl dice::ValueSerialize<Value = Self::Value> {
+        NoValueSerialize::<Self::Value>::new()
+    }
+}
+
+/// Depends on Seed but always returns 0. Absorbs the change so that
+/// downstream nodes see no value change.
+#[derive(Clone, Debug, Display, Dupe, Eq, Hash, PartialEq, Allocative, Pagable)]
+#[display("Buffer")]
+#[pagable_typetag(DiceKeyDyn)]
+struct Buffer;
+
+#[async_trait]
+impl Key for Buffer {
+    type Value = u32;
+
+    async fn compute(
+        &self,
+        ctx: &mut DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> u32 {
+        // Read Seed to create the dependency, but ignore its value.
+        let _seed = ctx.compute(&Seed).await.unwrap();
+        0
+    }
+
+    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
+        x == y
+    }
+
+    fn value_serialize() -> impl dice::ValueSerialize<Value = Self::Value> {
+        NoValueSerialize::<Self::Value>::new()
+    }
+}
+
+/// A node in the stress-test graph. Dependencies are determined by the
+/// configured shape (read from the global ARGS).
+#[derive(Clone, Debug, Display, Dupe, Eq, Hash, PartialEq, Allocative, Pagable)]
+#[display("Node({})", _0)]
+#[pagable_typetag(DiceKeyDyn)]
+struct GraphNode(u32);
+
+#[async_trait]
+impl Key for GraphNode {
+    type Value = u32;
+
+    async fn compute(
+        &self,
+        ctx: &mut DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> u32 {
+        let args = ARGS.get().unwrap();
+        match args.shape {
+            Shape::Wide => {
+                if self.0 == 0 {
+                    // Root: fan out to all other nodes.
+                    ctx.compute_join(1..args.node_count, |ctx, i| {
+                        async move {
+                            drop(ctx.compute(&GraphNode(i)).await);
+                        }
+                        .boxed()
+                    })
+                    .await;
+                } else {
+                    // Leaf: depend on Buffer.
+                    drop(ctx.compute(&Buffer).await);
+                }
+            }
+            Shape::Chain => {
+                if self.0 == args.node_count - 1 {
+                    // End of chain: depend on Buffer.
+                    drop(ctx.compute(&Buffer).await);
+                } else {
+                    // Link: depend on next node.
+                    drop(ctx.compute(&GraphNode(self.0 + 1)).await);
+                }
+            }
+            Shape::Tree => {
+                let total = args.total_nodes();
+                let first_child = self.0 * args.branching + 1;
+                if first_child < total {
+                    // Interior node: depend on children.
+                    let last_child = (first_child + args.branching).min(total);
+                    ctx.compute_join(first_child..last_child, |ctx, i| {
+                        async move {
+                            drop(ctx.compute(&GraphNode(i)).await);
+                        }
+                        .boxed()
+                    })
+                    .await;
+                } else {
+                    // Leaf: depend on Buffer.
+                    drop(ctx.compute(&Buffer).await);
+                }
+            }
+            Shape::Dense => {
+                let end = if args.dense_width == 0 {
+                    args.node_count
+                } else {
+                    (self.0 + 1 + args.dense_width).min(args.node_count)
+                };
+                if self.0 == args.node_count - 1 {
+                    // Last node: depend on Buffer.
+                    drop(ctx.compute(&Buffer).await);
+                } else {
+                    // Depend on nodes in range (self.0+1)..end.
+                    // Last dep in range also transitively reaches Buffer.
+                    ctx.compute_join(self.0 + 1..end, |ctx, i| {
+                        async move {
+                            drop(ctx.compute(&GraphNode(i)).await);
+                        }
+                        .boxed()
+                    })
+                    .await;
+                }
+            }
+        }
+        self.0
+    }
+
+    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
+        x == y
+    }
+
+    fn value_serialize() -> impl dice::ValueSerialize<Value = Self::Value> {
+        NoValueSerialize::<Self::Value>::new()
+    }
+}
+
+fn print_stats(label: &str, durations: &[Duration]) {
+    if durations.is_empty() {
+        return;
+    }
+    let min = durations.iter().min().unwrap();
+    let max = durations.iter().max().unwrap();
+    let sum: Duration = durations.iter().sum();
+    let avg = sum / durations.len() as u32;
+    eprintln!(
+        "{}: avg={:.3}ms  min={:.3}ms  max={:.3}ms",
+        label,
+        avg.as_secs_f64() * 1000.0,
+        min.as_secs_f64() * 1000.0,
+        max.as_secs_f64() * 1000.0,
+    );
+}
+
+#[tokio::main]
+async fn main() {
+    let args = Args::parse();
+    ARGS.set(args).unwrap();
+    let args = ARGS.get().unwrap();
+
+    let total = args.total_nodes();
+    eprintln!("Config: {:?}", args);
+    eprintln!(
+        "Shape: {:?}, graph nodes: {}, total DICE keys: {} (graph + Buffer + Seed)",
+        args.shape,
+        total,
+        total + 2
+    );
+
+    let dice = Dice::builder().build(if args.detect_cycles {
+        DetectCycles::Enabled
+    } else {
+        DetectCycles::Disabled
+    });
+
+    // Initial computation: populate the entire graph.
+    let start = Instant::now();
+    {
+        let mut updater = dice.updater();
+        updater.changed_to(vec![(Seed, 0)]).unwrap();
+        let mut ctx = updater.commit().await;
+        drop(ctx.compute(&GraphNode(0)).await);
+    }
+    eprintln!(
+        "Initial computation: {:.3}s\n",
+        start.elapsed().as_secs_f64()
+    );
+
+    // Invalidation iterations: change Seed, recompute root, measure cost.
+    let mut times = Vec::with_capacity(args.iterations as usize);
+    let mut commit_times = Vec::with_capacity(args.iterations as usize);
+    let mut compute_times = Vec::with_capacity(args.iterations as usize);
+
+    for i in 1..=args.iterations {
+        let mut updater = dice.updater();
+        updater.changed_to(vec![(Seed, i)]).unwrap();
+
+        let t0 = Instant::now();
+        let mut ctx = updater.commit().await;
+        let commit_dur = t0.elapsed();
+
+        let t1 = Instant::now();
+        drop(ctx.compute(&GraphNode(0)).await);
+        let compute_dur = t1.elapsed();
+
+        let t2 = Instant::now();
+        drop(ctx);
+        dice.wait_for_idle().await;
+        let wait_dur = t2.elapsed();
+
+        let total_dur = t0.elapsed();
+        times.push(total_dur);
+        commit_times.push(commit_dur);
+        compute_times.push(compute_dur);
+
+        eprintln!(
+            "  Iteration {:>3}: commit={:>8.3}ms  compute={:>8.3}ms  wait={:>8.3}ms total={:>8.3}ms",
+            i,
+            commit_dur.as_secs_f64() * 1000.0,
+            compute_dur.as_secs_f64() * 1000.0,
+            wait_dur.as_secs_f64() * 1000.0,
+            total_dur.as_secs_f64() * 1000.0,
+        );
+    }
+
+    eprintln!("\n--- Summary ({} iterations) ---", args.iterations);
+    print_stats("Total (commit+compute)", &times);
+    print_stats("  Commit", &commit_times);
+    print_stats("  Compute", &compute_times);
+}

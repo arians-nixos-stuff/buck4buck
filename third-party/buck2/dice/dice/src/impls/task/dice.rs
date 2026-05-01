@@ -20,17 +20,15 @@ use allocative::Allocative;
 use allocative::Visitor;
 use dice_error::result::CancellableResult;
 use dice_error::result::CancellationReason;
-use dice_futures::cancellation::CancellationHandle;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
 use futures::FutureExt;
-use parking_lot::MutexGuard;
 use parking_lot::RwLock;
 
-use crate::GlobalStats;
 use crate::arc::Arc;
 use crate::impls::key::DiceKey;
 use crate::impls::key::ParentKey;
+use crate::impls::task::critical::CancellationState;
 use crate::impls::task::handle::TaskState;
 use crate::impls::task::promise::DicePromise;
 use crate::impls::task::state::AtomicDiceTaskState;
@@ -53,28 +51,19 @@ use crate::impls::value::DiceComputedValue;
 /// which key is waiting on what
 ///
 /// We can explicitly track cancellations by tracking the Waker drops.
-///
-/// Memory size difference:
-/// DiceTask <-> Weak: DiceTask holds an extra JoinHandle which is a single ptr.
-/// DiceTask now holds a 'triomphe::Arc' instead of 'std::Arc' which is slightly more efficient as it
-/// doesn't require weak ptr handling. This is just so that we have the JoinHandle so we can abort
-/// when canceled, but we could choose to change the implementation by moving cancellation
-/// notification into the DiceTaskInternal
 #[derive(Allocative, Clone, Dupe)]
 pub(crate) struct DiceTask {
-    pub(super) internal: Arc<DiceTaskInternal>,
-    /// Handle to cancel the spawned task
-    #[allocative(skip)]
-    pub(super) cancellations: Cancellations,
+    pub(crate) internal: Arc<DiceTaskInternal>,
 }
 
-pub(super) struct DiceTaskInternal {
+pub(crate) struct DiceTaskInternal {
+    #[allow(dead_code)] // used by debug! logging when enabled
     pub(super) key: DiceKey,
     /// The internal progress state of the task
     pub(super) state: AtomicDiceTaskState,
 
-    /// Internals that require mutex
-    critical: super::critical::DiceTaskInternalCritical,
+    /// Mutex-guarded critical section: dependants, termination observers, and cancellation state.
+    pub(crate) critical: super::critical::DiceTaskInternalCritical,
     /// The value if finished computing
     maybe_value: UnsafeCell<Option<CancellableResult<DiceComputedValue>>>,
     /// the synchronous value from a sync computation that isn't yet in the core state
@@ -127,21 +116,12 @@ impl DiceTask {
         if let Some(result) = self.internal.read_value() {
             result.map(DicePromise::ready)
         } else {
-            match self
-                .internal
-                .critical
-                .depended_on_by(&self.cancellations, k)
-            {
+            match self.internal.critical.depended_on_by(k) {
                 super::critical::DependedOnByResult::Cancelled(cancellation_reason) => {
                     Err(cancellation_reason)
                 }
                 super::critical::DependedOnByResult::Pending(slab_id, waker) => {
-                    Ok(DicePromise::pending(
-                        slab_id,
-                        self.internal.dupe(),
-                        waker,
-                        self.cancellations.dupe(),
-                    ))
+                    Ok(DicePromise::pending(slab_id, self.internal.dupe(), waker))
                 }
                 super::critical::DependedOnByResult::Finished => self
                     .internal
@@ -167,18 +147,13 @@ impl DiceTask {
     }
 
     pub(crate) fn cancel(&self, reason: CancellationReason) {
-        self.internal.critical.cancel(&self.cancellations, reason);
+        self.internal.critical.cancel(reason);
     }
 
     pub(crate) fn await_termination(&self) -> TerminationObserver {
         match self.internal.critical.await_termination() {
             Some((slab_id, waker)) => TerminationObserver::Pending {
-                waiter: DicePromise::pending(
-                    slab_id,
-                    self.internal.dupe(),
-                    waker,
-                    self.cancellations.dupe(),
-                ),
+                waiter: DicePromise::pending(slab_id, self.internal.dupe(), waker),
             },
             None => {
                 let _finished_or_fully_cancelled = self
@@ -198,16 +173,16 @@ pub(crate) enum SlabId {
 }
 
 impl DiceTaskInternal {
-    pub(super) fn drop_waiter(&self, slab: &SlabId, cancellations: &Cancellations) {
-        self.critical.drop_waiter(slab, cancellations);
+    pub(super) fn drop_waiter(&self, slab: &SlabId) {
+        self.critical.drop_waiter(slab);
     }
 
-    pub(super) fn new(key: DiceKey) -> Arc<Self> {
+    pub(crate) fn new(key: DiceKey, cancellation: CancellationState) -> Arc<Self> {
         Arc::new(Self {
             key,
             state: AtomicDiceTaskState::default(),
             maybe_value: UnsafeCell::new(None),
-            critical: super::critical::DiceTaskInternalCritical::new(),
+            critical: super::critical::DiceTaskInternalCritical::new(cancellation),
             sync_value: Default::default(),
         })
     }
@@ -293,70 +268,6 @@ impl DiceTaskInternal {
 // Each unsafe block around its access has comments explaining the invariants.
 unsafe impl Send for DiceTaskInternal {}
 unsafe impl Sync for DiceTaskInternal {}
-
-/// Stores either task cancellation handle which can be used to cancel the task
-/// or termination observers if task is being cancelled.
-#[derive(Clone, Dupe)]
-pub(super) struct Cancellations {
-    /// `UnsafeCell` access is guarded by `DiceTaskInternal.critical` mutex.
-    /// `None` means task is not cancellable.
-    internal: Option<Arc<UnsafeCell<CancellationsInternal>>>,
-}
-
-enum CancellationsInternal {
-    NotCancelled(CancellationHandle),
-    Cancelled(CancellationReason),
-}
-
-impl Cancellations {
-    pub(super) fn new(cancellation_handle: CancellationHandle) -> Self {
-        Self {
-            internal: Some(Arc::new(UnsafeCell::new(
-                CancellationsInternal::NotCancelled(cancellation_handle),
-            ))),
-        }
-    }
-
-    pub(super) fn not_cancellable() -> Self {
-        Self { internal: None }
-    }
-
-    pub(super) fn cancel<T>(&self, _lock: &MutexGuard<T>, reason: CancellationReason) {
-        GlobalStats::record_cancellation();
-        if let Some(internal) = self.internal.as_ref() {
-            take_mut::take(
-                unsafe {
-                    // SAFETY: locked by the MutexGuard of Slab
-                    &mut *internal.get()
-                },
-                |internal| match internal {
-                    CancellationsInternal::NotCancelled(handle) => {
-                        handle.cancel();
-                        CancellationsInternal::Cancelled(reason)
-                    }
-                    cancelled => cancelled,
-                },
-            )
-        };
-    }
-
-    pub(super) fn is_cancelled<T>(&self, _lock: &MutexGuard<T>) -> Option<CancellationReason> {
-        self.internal.as_ref().and_then(|internal| {
-            match unsafe {
-                // SAFETY: locked by the MutexGuard of Slab
-                &*internal.get()
-            } {
-                CancellationsInternal::NotCancelled(_) => None,
-                CancellationsInternal::Cancelled(reason) => Some(*reason),
-            }
-        })
-    }
-}
-
-// our use of `UnsafeCell` is okay to be send and sync.
-// Each unsafe block around its access has comments explaining the invariants.
-unsafe impl Send for Cancellations {}
-unsafe impl Sync for Cancellations {}
 
 pub(crate) mod introspection {
     use crate::impls::task::dice::DiceTask;

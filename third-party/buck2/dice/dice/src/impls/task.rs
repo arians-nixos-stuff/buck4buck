@@ -18,12 +18,12 @@ use futures::FutureExt;
 use futures::future::BoxFuture;
 
 use crate::impls::key::DiceKey;
-use crate::impls::task::dice::Cancellations;
+use crate::impls::task::critical::CancellationState;
 use crate::impls::task::dice::DiceTask;
 use crate::impls::task::dice::DiceTaskInternal;
 use crate::impls::task::handle::DiceTaskHandle;
 
-mod critical;
+pub(crate) mod critical;
 pub(crate) mod dice;
 pub(crate) mod handle;
 pub(crate) mod promise;
@@ -38,16 +38,13 @@ pub(crate) fn spawn_dice_task<S>(
     ctx: &S,
     f: impl for<'a, 'b> FnOnce(&'a mut DiceTaskHandle<'b>) -> BoxFuture<'a, Box<dyn Any + Send>> + Send,
 ) -> DiceTask {
-    let internal = DiceTaskInternal::new(key);
+    let internal = DiceTaskInternal::new(key, CancellationState::Pending);
 
-    // detach the task, we'll cancel it explicitly if we want it canceled.
-    // we don't observe the result via the future so we can just drop that.
     let (_fut, cancellation_handle) = spawn_dropcancel(
         {
             let internal = internal.dupe();
             |cancellations| {
                 let handle = DiceTaskHandle::new(internal, cancellations);
-
                 OwningFuture::new(handle, f).boxed()
             }
         },
@@ -56,20 +53,18 @@ pub(crate) fn spawn_dice_task<S>(
     )
     .detach();
 
-    DiceTask {
-        internal,
-        cancellations: Cancellations::new(cancellation_handle),
-    }
+    internal
+        .critical
+        .set_cancellation_handle(cancellation_handle);
+
+    DiceTask { internal }
 }
 
 /// Unsafe as this creates a Task that must be completed explicitly otherwise polling will never
 /// complete.
 pub(crate) unsafe fn sync_dice_task(key: DiceKey) -> DiceTask {
-    let internal = DiceTaskInternal::new(key);
-
     DiceTask {
-        internal,
-        cancellations: Cancellations::not_cancellable(),
+        internal: DiceTaskInternal::new(key, CancellationState::NotCancellable),
     }
 }
 

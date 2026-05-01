@@ -450,6 +450,8 @@ pub fn display_file_watcher_end(file_watcher_end: &buck2_data::FileWatcherEnd) -
         // duplicates on the same file, then our "additional file change events" count is slightly high.
         // Shouldn't be a big deal in practice, since it is rare, and fairly big numbers already.
 
+        let is_fresh_instance = stats.fresh_instance;
+
         let mut to_print = OrderedSet::new();
         for x in &stats.events {
             to_print.insert((&x.path, x.kind()));
@@ -459,7 +461,11 @@ pub fn display_file_watcher_end(file_watcher_end: &buck2_data::FileWatcherEnd) -
                 FileWatcherKind::Directory => "Directory",
                 FileWatcherKind::File | FileWatcherKind::Symlink => "File",
             };
-            res.push(format!("{kind} changed: {path}"));
+            if is_fresh_instance {
+                res.push(format!("{kind} changed (since mergebase): {path}"));
+            } else {
+                res.push(format!("{kind} changed: {path}"));
+            }
         }
         let unprinted_paths =
             // those we have the names of but didn't print
@@ -467,7 +473,13 @@ pub fn display_file_watcher_end(file_watcher_end: &buck2_data::FileWatcherEnd) -
                 // plus those we didn't get the names for
                 (stats.events_processed as usize).saturating_sub(stats.events.len());
         if unprinted_paths > 0 {
-            res.push(format!("{unprinted_paths} additional file change events"));
+            if is_fresh_instance {
+                res.push(format!(
+                    "{unprinted_paths} additional file change events (since mergebase)"
+                ));
+            } else {
+                res.push(format!("{unprinted_paths} additional file change events"));
+            }
         }
 
         if let Some(fresh_instance) = &stats.fresh_instance_data {

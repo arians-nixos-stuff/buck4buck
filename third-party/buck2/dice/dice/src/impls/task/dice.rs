@@ -77,22 +77,143 @@ pub(super) struct DiceTaskInternal {
     pub(super) state: AtomicDiceTaskState,
 
     /// Internals that require mutex
-    pub(super) critical: Mutex<DiceTaskInternalCritical>,
+    critical: critical::DiceTaskInternalCritical,
     /// The value if finished computing
     maybe_value: UnsafeCell<Option<CancellableResult<DiceComputedValue>>>,
     /// the synchronous value from a sync computation that isn't yet in the core state
     pub(super) sync_value: RwLock<Option<DiceComputedValue>>,
 }
 
-pub(super) struct DiceTaskInternalCritical {
-    /// Other DiceTasks that are awaiting the completion of this task.
-    ///
-    /// We hold a pair DiceKey and Waker.
-    /// Compared to 'Shared', which just holds a standard 'Waker', the Waker itself is now an
-    /// AtomicWaker, which is an extra AtomicUsize, so this is marginally larger than the standard
-    /// Shared future.
-    pub(super) dependants: Option<Slab<(ParentKey, Arc<AtomicWaker>)>>,
-    pub(super) termination_observers: Option<Slab<Arc<AtomicWaker>>>,
+mod critical {
+    use super::*;
+
+    /// Wrapper around the mutex-protected critical section of `DiceTaskInternal`.
+    /// All access to dependant/termination-observer slabs goes through methods here,
+    /// keeping lock acquisition encapsulated.
+    #[derive(Allocative)]
+    pub(super) struct DiceTaskInternalCritical(Mutex<Data>);
+
+    /// Result of attempting to register as a dependant of a task.
+    pub(crate) enum DependedOnByResult {
+        Cancelled(CancellationReason),
+        Pending(SlabId, Arc<AtomicWaker>),
+        Finished,
+    }
+    impl DiceTaskInternalCritical {
+        pub(crate) fn depended_on_by(
+            &self,
+            cancellations: &Cancellations,
+            k: ParentKey,
+        ) -> DependedOnByResult {
+            let mut critical = self.0.lock();
+            if let Some(reason) = cancellations.is_cancelled(&critical) {
+                return DependedOnByResult::Cancelled(reason);
+            }
+            match &mut critical.dependants {
+                None => DependedOnByResult::Finished,
+                Some(wakers) => {
+                    let waker = Arc::new(AtomicWaker::new());
+                    let id = wakers.insert((k, waker.dupe()));
+
+                    DependedOnByResult::Pending(SlabId::Dependants(id), waker)
+                }
+            }
+        }
+
+        pub(crate) fn get_waiters_copy(&self) -> Option<Vec<ParentKey>> {
+            self.0
+                .lock()
+                .dependants
+                .as_ref()
+                .map(|deps| deps.iter().map(|(_, (k, _))| *k).collect())
+        }
+
+        pub(crate) fn cancel(&self, cancellations: &Cancellations, reason: CancellationReason) {
+            let lock = self.0.lock();
+            cancellations.cancel(&lock, reason);
+        }
+
+        pub(crate) fn await_termination(&self) -> Option<(SlabId, Arc<AtomicWaker>)> {
+            let mut critical = self.0.lock();
+            match &mut critical.termination_observers {
+                None => None,
+                Some(wakers) => {
+                    let waker = Arc::new(AtomicWaker::new());
+                    let id = wakers.insert(waker.dupe());
+
+                    Some((SlabId::TerminationObserver(id), waker))
+                }
+            }
+        }
+
+        pub(crate) fn new() -> Self {
+            Self(Mutex::new(Data {
+                dependants: Some(Slab::new()),
+                termination_observers: Some(Slab::new()),
+            }))
+        }
+
+        pub(crate) fn drop_waiter(&self, slab: &SlabId, cancellations: &Cancellations) {
+            let mut critical = self.0.lock();
+            match slab {
+                SlabId::Dependants(id) => match critical.dependants {
+                    None => {}
+                    Some(ref mut deps) => {
+                        deps.remove(*id);
+                        if deps.is_empty() {
+                            cancellations
+                                .cancel(&critical, CancellationReason::AllDependentsDropped);
+                        }
+                    }
+                },
+                SlabId::TerminationObserver(id) => match critical.termination_observers {
+                    None => {}
+                    Some(ref mut deps) => {
+                        deps.remove(*id);
+                        if deps.is_empty() {
+                            cancellations
+                                .cancel(&critical, CancellationReason::AllObserversDropped);
+                        }
+                    }
+                },
+            }
+        }
+
+        pub(super) fn wake_dependents(&self) {
+            let mut critical = self.0.lock();
+            let mut deps = critical
+                .dependants
+                .take()
+                .expect("Invalid state where deps where taken already");
+            let mut termination_observers = critical
+                .termination_observers
+                .take()
+                .expect("Invalid state where deps where taken already");
+
+            deps.drain().for_each(|(_k, waker)| waker.wake());
+            // wake up all the `TerminationObserver::poll`
+            termination_observers.drain().for_each(|waker| waker.wake());
+        }
+    }
+
+    struct Data {
+        /// Other DiceTasks that are awaiting the completion of this task.
+        ///
+        /// We hold a pair DiceKey and Waker.
+        /// Compared to 'Shared', which just holds a standard 'Waker', the Waker itself is now an
+        /// AtomicWaker, which is an extra AtomicUsize, so this is marginally larger than the standard
+        /// Shared future.
+        dependants: Option<Slab<(ParentKey, Arc<AtomicWaker>)>>,
+        termination_observers: Option<Slab<Arc<AtomicWaker>>>,
+    }
+
+    impl Allocative for Data {
+        fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
+            let mut visitor = visitor.enter_self_sized::<Self>();
+            visitor.visit_field(allocative::Key::new("dependants"), &self.dependants);
+            visitor.exit();
+        }
+    }
 }
 
 impl Allocative for DiceTaskInternal {
@@ -104,14 +225,6 @@ impl Allocative for DiceTaskInternal {
                 &*self.maybe_value.get()
             });
         }
-        visitor.exit();
-    }
-}
-
-impl Allocative for DiceTaskInternalCritical {
-    fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
-        let mut visitor = visitor.enter_self_sized::<Self>();
-        visitor.visit_field(allocative::Key::new("dependants"), &self.dependants);
         visitor.exit();
     }
 }
@@ -149,27 +262,25 @@ impl DiceTask {
         if let Some(result) = self.internal.read_value() {
             result.map(DicePromise::ready)
         } else {
-            let mut critical = self.internal.critical.lock();
-            if let Some(reason) = self.cancellations.is_cancelled(&critical) {
-                return Err(reason);
-            }
-            match &mut critical.dependants {
-                None => self
+            match self
+                .internal
+                .critical
+                .depended_on_by(&self.cancellations, k)
+            {
+                critical::DependedOnByResult::Cancelled(cancellation_reason) => {
+                    Err(cancellation_reason)
+                }
+                critical::DependedOnByResult::Pending(slab_id, waker) => Ok(DicePromise::pending(
+                    slab_id,
+                    self.internal.dupe(),
+                    waker,
+                    self.cancellations.dupe(),
+                )),
+                critical::DependedOnByResult::Finished => self
                     .internal
                     .read_value()
                     .expect("invalid state where deps are taken before state is ready")
                     .map(DicePromise::ready),
-                Some(wakers) => {
-                    let waker = Arc::new(AtomicWaker::new());
-                    let id = wakers.insert((k, waker.dupe()));
-
-                    Ok(DicePromise::pending(
-                        SlabId::Dependants(id),
-                        self.internal.dupe(),
-                        waker,
-                        self.cancellations.dupe(),
-                    ))
-                }
             }
         }
     }
@@ -185,22 +296,23 @@ impl DiceTask {
 
     #[allow(unused)] // future introspection functions
     pub(crate) fn inspect_waiters(&self) -> Option<Vec<ParentKey>> {
-        self.internal
-            .critical
-            .lock()
-            .dependants
-            .as_ref()
-            .map(|deps| deps.iter().map(|(_, (k, _))| *k).collect())
+        self.internal.critical.get_waiters_copy()
     }
 
     pub(crate) fn cancel(&self, reason: CancellationReason) {
-        let lock = self.internal.critical.lock();
-        self.cancellations.cancel(&lock, reason);
+        self.internal.critical.cancel(&self.cancellations, reason);
     }
 
     pub(crate) fn await_termination(&self) -> TerminationObserver {
-        let mut critical = self.internal.critical.lock();
-        match &mut critical.termination_observers {
+        match self.internal.critical.await_termination() {
+            Some((slab_id, waker)) => TerminationObserver::Pending {
+                waiter: DicePromise::pending(
+                    slab_id,
+                    self.internal.dupe(),
+                    waker,
+                    self.cancellations.dupe(),
+                ),
+            },
             None => {
                 let _finished_or_fully_cancelled = self
                     .internal
@@ -208,19 +320,6 @@ impl DiceTask {
                     .expect("invalid state where deps are taken before state is ready");
 
                 TerminationObserver::Done
-            }
-            Some(wakers) => {
-                let waker = Arc::new(AtomicWaker::new());
-                let id = wakers.insert(waker.dupe());
-
-                let promise = DicePromise::pending(
-                    SlabId::TerminationObserver(id),
-                    self.internal.dupe(),
-                    waker,
-                    self.cancellations.dupe(),
-                );
-
-                TerminationObserver::Pending { waiter: promise }
             }
         }
     }
@@ -233,27 +332,7 @@ pub(crate) enum SlabId {
 
 impl DiceTaskInternal {
     pub(super) fn drop_waiter(&self, slab: &SlabId, cancellations: &Cancellations) {
-        let mut critical = self.critical.lock();
-        match slab {
-            SlabId::Dependants(id) => match critical.dependants {
-                None => {}
-                Some(ref mut deps) => {
-                    deps.remove(*id);
-                    if deps.is_empty() {
-                        cancellations.cancel(&critical, CancellationReason::AllDependentsDropped);
-                    }
-                }
-            },
-            SlabId::TerminationObserver(id) => match critical.termination_observers {
-                None => {}
-                Some(ref mut deps) => {
-                    deps.remove(*id);
-                    if deps.is_empty() {
-                        cancellations.cancel(&critical, CancellationReason::AllObserversDropped);
-                    }
-                }
-            },
-        }
+        self.critical.drop_waiter(slab, cancellations);
     }
 
     pub(super) fn new(key: DiceKey) -> Arc<Self> {
@@ -261,10 +340,7 @@ impl DiceTaskInternal {
             key,
             state: AtomicDiceTaskState::default(),
             maybe_value: UnsafeCell::new(None),
-            critical: Mutex::new(DiceTaskInternalCritical {
-                dependants: Some(Slab::new()),
-                termination_observers: Some(Slab::new()),
-            }),
+            critical: critical::DiceTaskInternalCritical::new(),
             sync_value: Default::default(),
         })
     }
@@ -310,25 +386,9 @@ impl DiceTaskInternal {
         );
 
         self.state.report_ready();
-        self.wake_dependents();
+        self.critical.wake_dependents();
 
         Ok(value)
-    }
-
-    pub(super) fn wake_dependents(&self) {
-        let mut critical = self.critical.lock();
-        let mut deps = critical
-            .dependants
-            .take()
-            .expect("Invalid state where deps where taken already");
-        let mut termination_observers = critical
-            .termination_observers
-            .take()
-            .expect("Invalid state where deps where taken already");
-
-        deps.drain().for_each(|(_k, waker)| waker.wake());
-        // wake up all the `TerminationObserver::poll`
-        termination_observers.drain().for_each(|waker| waker.wake());
     }
 
     /// report the task as terminated. This should only be called once. No effect if called affect
@@ -353,7 +413,7 @@ impl DiceTaskInternal {
         );
 
         self.state.report_terminated();
-        self.wake_dependents();
+        self.critical.wake_dependents();
     }
 
     /// true if this task is not yet complete and not yet canceled.
@@ -394,11 +454,7 @@ impl Cancellations {
         Self { internal: None }
     }
 
-    pub(super) fn cancel(
-        &self,
-        _lock: &MutexGuard<DiceTaskInternalCritical>,
-        reason: CancellationReason,
-    ) {
+    pub(super) fn cancel<T>(&self, _lock: &MutexGuard<T>, reason: CancellationReason) {
         GlobalStats::record_cancellation();
         if let Some(internal) = self.internal.as_ref() {
             take_mut::take(
@@ -417,10 +473,7 @@ impl Cancellations {
         };
     }
 
-    pub(super) fn is_cancelled(
-        &self,
-        _lock: &MutexGuard<DiceTaskInternalCritical>,
-    ) -> Option<CancellationReason> {
+    pub(super) fn is_cancelled<T>(&self, _lock: &MutexGuard<T>) -> Option<CancellationReason> {
         self.internal.as_ref().and_then(|internal| {
             match unsafe {
                 // SAFETY: locked by the MutexGuard of Slab

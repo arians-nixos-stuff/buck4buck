@@ -254,17 +254,15 @@ mod tests {
     use crate::impls::core::versions::VersionEpoch;
     use crate::impls::deps::graph::SeriesParallelDeps;
     use crate::impls::key::DiceKey;
-    use crate::impls::key::ParentKey;
     use crate::impls::task::dice::DiceTask;
     use crate::impls::task::spawn_dice_task;
     use crate::impls::transaction::ChangeType;
     use crate::impls::value::DiceComputedValue;
     use crate::impls::value::DiceKeyValue;
     use crate::impls::value::DiceValidValue;
-    use crate::impls::value::MaybeValidDiceValue;
     use crate::impls::value::TrackedInvalidationPaths;
+    use crate::testing_helpers::make_completed_task;
     use crate::versions::VersionNumber;
-    use crate::versions::VersionRanges;
 
     #[test]
     fn update_state_gets_next_version() {
@@ -347,27 +345,6 @@ mod tests {
         assert_eq!(res.err(), Some(CancellationReason::OutdatedEpoch));
     }
 
-    async fn make_completed_task(key: DiceKey, val: usize) -> DiceTask {
-        let task = spawn_dice_task(key, &TokioSpawner, &(), |handle| {
-            async move {
-                handle.finished(DiceComputedValue::new(
-                    MaybeValidDiceValue::valid(DiceValidValue::testing_new(
-                        DiceKeyValue::<K>::new(val),
-                    )),
-                    Arc::new(VersionRanges::new()),
-                    TrackedInvalidationPaths::clean(),
-                ));
-
-                Box::new(()) as Box<dyn Any + Send>
-            }
-            .boxed()
-        });
-
-        task.depended_on_by(ParentKey::None).unwrap().await.unwrap();
-
-        task
-    }
-
     async fn make_finished_cancelling_task(key: DiceKey) -> DiceTask {
         let finished_cancelling_tasks = spawn_dice_task(key, &TokioSpawner, &(), |handle| {
             async move {
@@ -448,8 +425,8 @@ mod tests {
 
         let (_epoch, cache) = core.ctx_at_version(v);
 
-        let completed_task1 = make_completed_task(DiceKey { index: 10 }, 1).await;
-        let completed_task2 = make_completed_task(DiceKey { index: 20 }, 2).await;
+        let completed_task1 = make_completed_task::<K>(DiceKey { index: 10 }, 1).await;
+        let completed_task2 = make_completed_task::<K>(DiceKey { index: 20 }, 2).await;
 
         let finished_cancelling_tasks1 = make_finished_cancelling_task(DiceKey { index: 30 }).await;
         let finished_cancelling_tasks2 = make_finished_cancelling_task(DiceKey { index: 40 }).await;

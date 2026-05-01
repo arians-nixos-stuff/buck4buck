@@ -19,5 +19,5 @@ Caused by:
          * error_rule.bzl:23, in <module>
              "someattr": attrs.transition_dep(default = "notaproperlabel", cfg = _transiti...
        
-    3: Invalid target pattern `notaproperlabel` is not allowed
+    3: Error parsing target pattern `notaproperlabel`
     4: Expected pattern to contain `:`, trailing `/...` or literal `...`.

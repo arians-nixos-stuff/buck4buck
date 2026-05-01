@@ -36,7 +36,7 @@ def _replace_hash(s: str) -> str:
 async def test_uquery_none(buck: Buck) -> None:
     await expect_failure(
         buck.uquery("""none"""),
-        stderr_regex="Invalid target pattern `none` is not allowed",
+        stderr_regex="Error parsing target pattern `none`",
     )
 
     await expect_failure(
@@ -58,28 +58,28 @@ async def test_uquery_none(buck: Buck) -> None:
 
     await expect_failure(
         buck.uquery("""set(none)"""),
-        stderr_regex="Invalid target pattern `none` is not allowed",
+        stderr_regex="Error parsing target pattern `none`",
     )
 
     await expect_failure(
         buck.uquery("""set(None)"""),
         # stderr_regex="expected value of type `targets`, got `None`:",
-        stderr_regex="Invalid target pattern `None` is not allowed",
+        stderr_regex="Error parsing target pattern `None`",
     )
 
     await expect_failure(
         buck.uquery("""set('none')"""),
-        stderr_regex="Invalid target pattern `none` is not allowed",
+        stderr_regex="Error parsing target pattern `none`",
     )
 
     await expect_failure(
         buck.uquery("""set('None')"""),
-        stderr_regex="Invalid target pattern `None` is not allowed",
+        stderr_regex="Error parsing target pattern `None`",
     )
 
     await expect_failure(
         buck.uquery("""filter('', none)"""),
-        stderr_regex="Invalid target pattern `none` is not allowed",
+        stderr_regex="Error parsing target pattern `none`",
     )
 
     await expect_failure(

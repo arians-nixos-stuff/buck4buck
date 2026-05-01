@@ -42,7 +42,7 @@ async def test_relative_path_has_symlink(buck: Buck) -> None:
 async def test_relative_path_in_attribute_default_current(buck: Buck) -> None:
     await expect_failure(
         buck.targets("//foo/default_current:target"),
-        stderr_regex="Must be absolute. Starting with either `//` for a cell alias or `:` for a relative target.",
+        stderr_regex="Target pattern must be absolute",
     )
 
 
@@ -50,5 +50,5 @@ async def test_relative_path_in_attribute_default_current(buck: Buck) -> None:
 async def test_relative_path_in_attribute_default_up(buck: Buck) -> None:
     await expect_failure(
         buck.targets("//foo/default_up:target"),
-        stderr_regex="Must be absolute. Starting with either `//` for a cell alias or `:` for a relative target.",
+        stderr_regex="Target pattern must be absolute",
     )

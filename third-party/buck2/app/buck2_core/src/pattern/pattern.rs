@@ -67,7 +67,7 @@ enum TargetPatternParseError {
     #[error("Package is empty")]
     PackageIsEmpty,
     #[error(
-        "Must be absolute. Starting with either `//` for a cell alias or `:` for a relative target."
+        "Target pattern must be absolute (e.g. `//package:target`). Relative patterns like `:target` are not permitted in this context."
     )]
     AbsoluteRequired,
     #[error(
@@ -341,29 +341,8 @@ impl<T: PatternType> ParsedPattern<T> {
             pattern,
         )
         .with_buck_error_context(|| {
-            format!("Invalid absolute target pattern `{pattern}` is not allowed")
+            format!("Error parsing target pattern `{pattern}`, expected an absolute pattern")
         })?;
-
-        Self::from_parsed_pattern_with_modifiers(pattern_with_modifiers)
-    }
-
-    pub fn parse_not_relaxed(
-        pattern: &str,
-        relative: TargetParsingRel<'_>,
-        cell_resolver: &CellResolver,
-        cell_alias_resolver: &CellAliasResolver,
-    ) -> buck2_error::Result<Self> {
-        let pattern_with_modifiers = parse_target_pattern(
-            cell_resolver,
-            cell_alias_resolver,
-            TargetParsingOptions {
-                relative,
-                infer_target: false,
-                strip_package_trailing_slash: false,
-            },
-            pattern,
-        )
-        .with_buck_error_context(|| format!("Invalid target pattern `{pattern}` is not allowed"))?;
 
         Self::from_parsed_pattern_with_modifiers(pattern_with_modifiers)
     }
@@ -398,6 +377,27 @@ impl<T: PatternType> ParsedPattern<T> {
             pattern,
         )
         .with_buck_error_context(|| format!("Parsing target pattern `{pattern}`"))?;
+
+        Self::from_parsed_pattern_with_modifiers(pattern_with_modifiers)
+    }
+
+    pub fn parse_not_relaxed(
+        pattern: &str,
+        relative: TargetParsingRel<'_>,
+        cell_resolver: &CellResolver,
+        cell_alias_resolver: &CellAliasResolver,
+    ) -> buck2_error::Result<Self> {
+        let pattern_with_modifiers = parse_target_pattern(
+            cell_resolver,
+            cell_alias_resolver,
+            TargetParsingOptions {
+                relative,
+                infer_target: false,
+                strip_package_trailing_slash: false,
+            },
+            pattern,
+        )
+        .with_buck_error_context(|| format!("Error parsing target pattern `{pattern}`"))?;
 
         Self::from_parsed_pattern_with_modifiers(pattern_with_modifiers)
     }
@@ -481,7 +481,7 @@ impl<T: PatternType> ParsedPatternWithModifiers<T> {
             pattern,
         )
         .with_buck_error_context(|| {
-            format!("Invalid absolute target pattern `{pattern}` is not allowed")
+            format!("Error parsing target pattern `{pattern}`, expected an absolute pattern")
         })
     }
 
@@ -526,7 +526,7 @@ impl<T: PatternType> ParsedPatternWithModifiers<T> {
             },
             pattern,
         )
-        .with_buck_error_context(|| format!("Invalid target pattern `{pattern}` is not allowed"))
+        .with_buck_error_context(|| format!("Error parsing target pattern `{pattern}`"))
     }
 }
 
@@ -1751,7 +1751,7 @@ mod tests {
         .unwrap_err();
         assert!(
             err.to_string()
-                .contains("Invalid target pattern `:target` is not allowed"),
+                .contains("Error parsing target pattern `:target`"),
             "{}",
             err
         );
@@ -2322,7 +2322,7 @@ mod tests {
                 &resolver(),
                 &alias_resolver(),
             ),
-            &["Invalid target pattern `../sibling:target` is not allowed"],
+            &["Error parsing target pattern `../sibling:target`"],
         );
 
         fails(
@@ -2338,7 +2338,7 @@ mod tests {
                 &resolver(),
                 &alias_resolver(),
             ),
-            &["Invalid target pattern `../../not_allowed:target` is not allowed"],
+            &["Error parsing target pattern `../../not_allowed:target`"],
         );
 
         Ok(())

@@ -526,6 +526,7 @@ pub struct DaemonStartupConfig {
     pub health_check_config: HealthCheckConfig,
     pub retained_event_logs: usize,
     pub macos_qos_class: Option<String>,
+    pub daemon_idle_timeout_s: Option<u64>,
 }
 
 impl DaemonStartupConfig {
@@ -633,6 +634,10 @@ impl DaemonStartupConfig {
                     from_config
                 }
             },
+            daemon_idle_timeout_s: config.parse(BuckconfigKeyRef {
+                section: "buck2",
+                property: "daemon_idle_timeout_s",
+            })?,
         })
     }
 
@@ -663,6 +668,42 @@ impl DaemonStartupConfig {
             health_check_config: HealthCheckConfig::default(),
             retained_event_logs: DEFAULT_RETAINED_EVENT_LOGS,
             macos_qos_class: None,
+            daemon_idle_timeout_s: None,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use indoc::indoc;
+
+    use super::*;
+    use crate::legacy_configs::configs::testing::parse;
+
+    #[test]
+    fn test_daemon_idle_timeout_s_default() -> buck2_error::Result<()> {
+        let config = parse(&[("config", indoc!(r#""#))], "config")?;
+        let startup_config = DaemonStartupConfig::new(&config)?;
+        assert_eq!(startup_config.daemon_idle_timeout_s, None);
+        Ok(())
+    }
+
+    #[test]
+    fn test_daemon_idle_timeout_s_configured() -> buck2_error::Result<()> {
+        let config = parse(
+            &[(
+                "config",
+                indoc!(
+                    r#"
+                    [buck2]
+                    daemon_idle_timeout_s = 10800
+                    "#
+                ),
+            )],
+            "config",
+        )?;
+        let startup_config = DaemonStartupConfig::new(&config)?;
+        assert_eq!(startup_config.daemon_idle_timeout_s, Some(10800));
+        Ok(())
     }
 }

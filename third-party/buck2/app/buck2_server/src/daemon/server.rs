@@ -289,6 +289,8 @@ impl BuckdServer {
         let cert_state = CertState::new().await;
         certs_validation_background_job(cert_state.dupe()).await;
 
+        let daemon_idle_timeout_s = init_ctx.daemon_startup_config.daemon_idle_timeout_s;
+
         let daemon_state = Arc::new(
             DaemonState::new(
                 fb,
@@ -337,7 +339,8 @@ impl BuckdServer {
             rt,
         }));
 
-        let shutdown = server_shutdown_signal(command_receiver, shutdown_receiver)?;
+        let shutdown =
+            server_shutdown_signal(command_receiver, shutdown_receiver, daemon_idle_timeout_s)?;
         let server = Server::builder()
             .layer(InterceptorLayer::new(BuckCheckAuthTokenInterceptor {
                 auth_token,
@@ -1673,8 +1676,11 @@ trait StreamingCommandOptions<Req>: OneshotCommandOptions {
 fn server_shutdown_signal(
     command_receiver: UnboundedReceiver<()>,
     mut shutdown_receiver: UnboundedReceiver<()>,
+    daemon_idle_timeout_s: Option<u64>,
 ) -> buck2_error::Result<impl Future<Output = ()>> {
-    let mut duration = DEFAULT_INACTIVITY_TIMEOUT;
+    let mut duration = daemon_idle_timeout_s
+        .map(Duration::from_secs)
+        .unwrap_or(DEFAULT_INACTIVITY_TIMEOUT);
     if buck2_env!(
         "BUCK2_TESTING_INACTIVITY_TIMEOUT",
         bool,
@@ -1791,3 +1797,66 @@ struct DefaultCommandOptions;
 impl OneshotCommandOptions for DefaultCommandOptions {}
 
 impl<Req> StreamingCommandOptions<Req> for DefaultCommandOptions {}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use futures::channel::mpsc;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn test_server_shutdown_custom_idle_timeout() {
+        tokio::time::pause();
+
+        let (_cmd_tx, cmd_rx) = mpsc::unbounded::<()>();
+        let (_shutdown_tx, shutdown_rx) = mpsc::unbounded::<()>();
+
+        let shutdown_future = server_shutdown_signal(cmd_rx, shutdown_rx, Some(2)).unwrap();
+        futures::pin_mut!(shutdown_future);
+
+        let result = tokio::time::timeout(Duration::from_secs(1), &mut shutdown_future).await;
+        assert!(result.is_err(), "should not shut down before timeout");
+
+        let result = tokio::time::timeout(Duration::from_secs(2), &mut shutdown_future).await;
+        assert!(result.is_ok(), "should shut down after idle timeout");
+    }
+
+    #[tokio::test]
+    async fn test_server_shutdown_default_idle_timeout() {
+        tokio::time::pause();
+
+        let (_cmd_tx, cmd_rx) = mpsc::unbounded::<()>();
+        let (_shutdown_tx, shutdown_rx) = mpsc::unbounded::<()>();
+
+        let shutdown_future = server_shutdown_signal(cmd_rx, shutdown_rx, None).unwrap();
+        futures::pin_mut!(shutdown_future);
+
+        let result = tokio::time::timeout(Duration::from_secs(3600), &mut shutdown_future).await;
+        assert!(result.is_err(), "should not shut down before 4-day default");
+    }
+
+    #[tokio::test]
+    async fn test_server_shutdown_command_resets_idle_timer() {
+        tokio::time::pause();
+
+        let (cmd_tx, cmd_rx) = mpsc::unbounded::<()>();
+        let (_shutdown_tx, shutdown_rx) = mpsc::unbounded::<()>();
+
+        let shutdown_future = server_shutdown_signal(cmd_rx, shutdown_rx, Some(3)).unwrap();
+        futures::pin_mut!(shutdown_future);
+
+        tokio::time::advance(Duration::from_secs(2)).await;
+        cmd_tx.unbounded_send(()).unwrap();
+
+        let result = tokio::time::timeout(Duration::from_secs(2), &mut shutdown_future).await;
+        assert!(result.is_err(), "timer should have been reset by command");
+
+        let result = tokio::time::timeout(Duration::from_secs(2), &mut shutdown_future).await;
+        assert!(
+            result.is_ok(),
+            "should shut down after idle timeout post-reset"
+        );
+    }
+}

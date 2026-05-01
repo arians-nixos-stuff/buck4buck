@@ -51,15 +51,15 @@ impl<'a> DiceTaskHandle<'a> {
     }
 
     pub(crate) fn report_initial_lookup(&self) -> TaskState {
-        self.internal.state.report_initial_lookup()
+        self.internal.report_initial_lookup()
     }
 
     pub(crate) fn checking_deps(&self) -> TaskState {
-        self.internal.state.report_checking_deps()
+        self.internal.report_checking_deps()
     }
 
     pub(crate) fn computing(&self) -> TaskState {
-        self.internal.state.report_computing()
+        self.internal.report_computing()
     }
 
     pub(crate) fn cancellation_ctx(&self) -> &'a CancellationContext {
@@ -81,17 +81,20 @@ impl Drop for DiceTaskHandle<'_> {
     fn drop(&mut self) {
         match self.result.take() {
             Some(Ok(v)) => {
-                debug!("{:?} finished. Notifying result", self.internal.key);
+                debug!("{:?} finished. Notifying result", self.internal.key());
                 let _ignore = self.internal.set_value(v);
             }
             Some(Err(reason)) => {
-                debug!("{:?} cancelled. Notifying cancellation", self.internal.key);
+                debug!(
+                    "{:?} cancelled. Notifying cancellation",
+                    self.internal.key()
+                );
                 self.internal.report_terminated(reason);
             }
             None => {
                 debug!(
                     "{:?} dropped without result. Notifying cancellation",
-                    self.internal.key
+                    self.internal.key()
                 );
                 self.internal
                     .report_terminated(CancellationReason::HandleDropped);

@@ -24,7 +24,6 @@ use futures::task::AtomicWaker;
 use crate::arc::Arc;
 use crate::impls::task::dice::DiceTaskInternal;
 use crate::impls::task::dice::SlabId;
-use crate::impls::task::handle::TaskState;
 use crate::impls::value::DiceComputedValue;
 
 /// A string reference to a 'DiceTask' that is pollable as a future.
@@ -102,70 +101,7 @@ impl DicePromise {
         match &self.0 {
             DicePromiseInternal::Ready { result } => Ok(result.dupe()),
             DicePromiseInternal::Pending { task_internal, .. } => {
-                if let Some(res) = task_internal.read_value() {
-                    res
-                } else if let Some(sync_res) = {
-                    let lock = task_internal.sync_value.read();
-                    let value = lock.dupe();
-                    drop(lock);
-                    value
-                } {
-                    Ok(sync_res)
-                } else {
-                    match task_internal.state.report_project() {
-                        TaskState::Continue => {}
-                        TaskState::Finished => {
-                            return task_internal
-                                .read_value()
-                                .expect("task finished must mean result is ready");
-                        }
-                    }
-
-                    let result = {
-                        let mut locked = task_internal.sync_value.write();
-
-                        if let Some(res) = locked.as_ref() {
-                            return Ok(res.dupe());
-                        }
-
-                        let result = f();
-
-                        assert!(
-                            locked.replace(result.sync_result.dupe()).is_none(),
-                            "should only complete sync result once"
-                        );
-
-                        result
-                    };
-
-                    tokio::spawn({
-                        let future = result.state_future;
-                        let internals = task_internal.dupe();
-
-                        async move {
-                            let res = future.await;
-
-                            let mut sync_value = internals.sync_value.write();
-
-                            match res {
-                                Ok(result) => {
-                                    // only errors if cancelled, so we can ignore any errors when
-                                    // setting the result
-                                    let _ignore = internals.set_value(result);
-                                }
-                                Err(reason) => {
-                                    // if its cancelled, report cancelled
-                                    internals.report_terminated(reason);
-                                }
-                            }
-
-                            // stop storing the sync value since the async one is done
-                            sync_value.take()
-                        }
-                    });
-
-                    Ok(result.sync_result)
-                }
+                DiceTaskInternal::sync_get_or_complete(task_internal, f)
             }
             DicePromiseInternal::Done => panic!("poll after ready"),
         }

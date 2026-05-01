@@ -10,7 +10,6 @@
 
 use std::any::Any;
 use std::hash::Hash;
-use std::sync::atomic::Ordering;
 use std::task::Poll;
 
 use allocative::Allocative;
@@ -174,8 +173,8 @@ async fn not_ready_until_dropped() -> anyhow::Result<()> {
 
     sent_finish.notified().await;
 
-    assert!(!task.internal.state.is_ready(Ordering::SeqCst));
-    assert!(!task.internal.state.is_terminated(Ordering::SeqCst));
+    assert!(!task.is_ready());
+    assert!(!task.is_terminated());
     assert!(task.is_pending());
 
     assert_matches!(poll!(&mut promise), Poll::Pending);
@@ -184,8 +183,8 @@ async fn not_ready_until_dropped() -> anyhow::Result<()> {
 
     let v = promise.await;
 
-    assert!(task.internal.state.is_ready(Ordering::SeqCst));
-    assert!(!task.internal.state.is_terminated(Ordering::SeqCst));
+    assert!(task.is_ready());
+    assert!(!task.is_terminated());
     assert!(!task.is_pending());
 
     assert!(
@@ -224,8 +223,8 @@ async fn never_ready_results_in_terminated() -> anyhow::Result<()> {
     let v = promise.await;
     assert!(v.is_err());
 
-    assert!(!task.internal.state.is_ready(Ordering::SeqCst));
-    assert!(task.internal.state.is_terminated(Ordering::SeqCst));
+    assert!(!task.is_ready());
+    assert!(task.is_terminated());
     assert!(!task.is_pending());
 
     Ok(())
@@ -659,8 +658,8 @@ async fn dropping_all_waiters_cancels_task() {
     let await_termination = task.await_termination();
     futures::pin_mut!(await_termination);
 
-    assert!(!task.internal.state.is_ready(Ordering::SeqCst));
-    assert!(!task.internal.state.is_terminated(Ordering::SeqCst));
+    assert!(!task.is_ready());
+    assert!(!task.is_terminated());
     assert!(task.is_pending());
     assert_matches!(futures::poll!(&mut await_termination), Poll::Pending);
 
@@ -699,8 +698,8 @@ async fn dropping_all_waiters_cancels_task() {
 
     task.await_termination().await;
 
-    assert!(!task.internal.state.is_ready(Ordering::SeqCst));
-    assert!(task.internal.state.is_terminated(Ordering::SeqCst));
+    assert!(!task.is_ready());
+    assert!(task.is_terminated());
     assert!(!task.is_pending());
 }
 

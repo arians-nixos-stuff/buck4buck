@@ -31,6 +31,7 @@ use crate::impls::key::ParentKey;
 use crate::impls::task::critical::CancellationState;
 use crate::impls::task::handle::TaskState;
 use crate::impls::task::promise::DicePromise;
+use crate::impls::task::promise::DiceSyncResult;
 use crate::impls::task::state::AtomicDiceTaskState;
 use crate::impls::value::DiceComputedValue;
 
@@ -53,21 +54,27 @@ use crate::impls::value::DiceComputedValue;
 /// We can explicitly track cancellations by tracking the Waker drops.
 #[derive(Allocative, Clone, Dupe)]
 pub(crate) struct DiceTask {
-    pub(crate) internal: Arc<DiceTaskInternal>,
+    internal: Arc<DiceTaskInternal>,
+}
+
+impl DiceTask {
+    pub(super) fn new(internal: Arc<DiceTaskInternal>) -> Self {
+        Self { internal }
+    }
 }
 
 pub(crate) struct DiceTaskInternal {
     #[allow(dead_code)] // used by debug! logging when enabled
-    pub(super) key: DiceKey,
+    key: DiceKey,
     /// The internal progress state of the task
-    pub(super) state: AtomicDiceTaskState,
+    state: AtomicDiceTaskState,
 
     /// Mutex-guarded critical section: dependants, termination observers, and cancellation state.
-    pub(crate) critical: super::critical::DiceTaskInternalCritical,
+    critical: super::critical::DiceTaskInternalCritical,
     /// The value if finished computing
     maybe_value: UnsafeCell<Option<CancellableResult<DiceComputedValue>>>,
     /// the synchronous value from a sync computation that isn't yet in the core state
-    pub(super) sync_value: RwLock<Option<DiceComputedValue>>,
+    sync_value: RwLock<Option<DiceComputedValue>>,
 }
 
 impl Allocative for DiceTaskInternal {
@@ -150,6 +157,16 @@ impl DiceTask {
         self.internal.critical.cancel(reason);
     }
 
+    #[cfg(test)]
+    pub(crate) fn is_ready(&self) -> bool {
+        self.internal.state.is_ready(Ordering::SeqCst)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn is_terminated(&self) -> bool {
+        self.internal.state.is_terminated(Ordering::SeqCst)
+    }
+
     pub(crate) fn await_termination(&self) -> TerminationObserver {
         match self.internal.critical.await_termination() {
             Some((slab_id, waker)) => TerminationObserver::Pending {
@@ -173,8 +190,111 @@ pub(crate) enum SlabId {
 }
 
 impl DiceTaskInternal {
+    pub(super) fn key(&self) -> DiceKey {
+        self.key
+    }
+
+    pub(super) fn report_initial_lookup(&self) -> TaskState {
+        self.state.report_initial_lookup()
+    }
+
+    pub(super) fn report_checking_deps(&self) -> TaskState {
+        self.state.report_checking_deps()
+    }
+
+    pub(super) fn report_computing(&self) -> TaskState {
+        self.state.report_computing()
+    }
+
+    /// Synchronously get the value of this task, or compute it via a sync projection.
+    ///
+    /// This encapsulates the entire sync projection protocol:
+    /// 1. Check if the task already has a completed value
+    /// 2. Check if a sync projection value already exists
+    /// 3. Transition the state to projecting
+    /// 4. Compute the sync value under write lock
+    /// 5. Spawn a background task to complete the async part
+    pub(super) fn sync_get_or_complete(
+        this: &Arc<Self>,
+        f: impl FnOnce() -> DiceSyncResult,
+    ) -> CancellableResult<DiceComputedValue> {
+        if let Some(res) = this.read_value() {
+            return res;
+        }
+
+        if let Some(sync_res) = {
+            let lock = this.sync_value.read();
+            let value = lock.dupe();
+            drop(lock);
+            value
+        } {
+            return Ok(sync_res);
+        }
+
+        match this.state.report_project() {
+            TaskState::Continue => {}
+            TaskState::Finished => {
+                return this
+                    .read_value()
+                    .expect("task finished must mean result is ready");
+            }
+        }
+
+        let result = {
+            let mut locked = this.sync_value.write();
+
+            if let Some(res) = locked.as_ref() {
+                return Ok(res.dupe());
+            }
+
+            let result = f();
+
+            assert!(
+                locked.replace(result.sync_result.dupe()).is_none(),
+                "should only complete sync result once"
+            );
+
+            result
+        };
+
+        tokio::spawn({
+            let future = result.state_future;
+            let internals = this.dupe();
+
+            async move {
+                let res = future.await;
+
+                let mut sync_value = internals.sync_value.write();
+
+                match res {
+                    Ok(result) => {
+                        // only errors if cancelled, so we can ignore any errors when
+                        // setting the result
+                        let _ignore = internals.set_value(result);
+                    }
+                    Err(reason) => {
+                        // if its cancelled, report cancelled
+                        internals.report_terminated(reason);
+                    }
+                }
+
+                // stop storing the sync value since the async one is done
+                sync_value.take()
+            }
+        });
+
+        Ok(result.sync_result)
+    }
+
     pub(super) fn drop_waiter(&self, slab: &SlabId) {
         self.critical.drop_waiter(slab);
+    }
+
+    pub(super) fn set_cancellation_handle(
+        &self,
+        handle: dice_futures::cancellation::CancellationHandle,
+    ) {
+        self.critical.set_cancellation_handle(handle);
     }
 
     pub(crate) fn new(key: DiceKey, cancellation: CancellationState) -> Arc<Self> {

@@ -53,21 +53,36 @@ pub(crate) fn spawn_dice_task<S>(
     )
     .detach();
 
-    internal
-        .critical
-        .set_cancellation_handle(cancellation_handle);
+    internal.set_cancellation_handle(cancellation_handle);
 
-    DiceTask { internal }
+    DiceTask::new(internal)
 }
 
 /// Unsafe as this creates a Task that must be completed explicitly otherwise polling will never
 /// complete.
 pub(crate) unsafe fn sync_dice_task(key: DiceKey) -> DiceTask {
-    DiceTask {
-        internal: DiceTaskInternal::new(key, CancellationState::NotCancellable),
-    }
+    DiceTask::new(DiceTaskInternal::new(
+        key,
+        CancellationState::NotCancellable,
+    ))
 }
 
 pub(crate) struct PreviouslyCancelledTask {
-    pub(crate) previous: DiceTask,
+    previous: DiceTask,
+}
+
+impl PreviouslyCancelledTask {
+    pub(crate) fn new(previous: DiceTask) -> Self {
+        Self { previous }
+    }
+
+    pub(crate) fn await_termination(&self) -> crate::impls::task::dice::TerminationObserver {
+        self.previous.await_termination()
+    }
+
+    pub(crate) fn get_finished_value(
+        &self,
+    ) -> Option<dice_error::result::CancellableResult<crate::impls::value::DiceComputedValue>> {
+        self.previous.get_finished_value()
+    }
 }

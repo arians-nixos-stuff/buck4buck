@@ -103,13 +103,12 @@ impl<'a> DiceWorkerStateAwaitingPrevious<'a> {
         previous: PreviouslyCancelledTask,
     ) -> Either<CancellableResult<DiceWorkerStateFinishedAndCached>, DiceWorkerStateLookupNode>
     {
-        previous.previous.await_termination().await;
+        previous.await_termination().await;
 
         // old task actually finished, so just use that result if it wasn't
         // cancelled
 
         match previous
-            .previous
             .get_finished_value()
             .expect("Terminated task must have finished value")
         {

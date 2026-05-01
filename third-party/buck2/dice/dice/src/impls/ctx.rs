@@ -850,7 +850,7 @@ impl SharedLiveTransactionCtx {
                                 eval,
                                 cycles,
                                 events,
-                                Some(PreviouslyCancelledTask { previous }),
+                                Some(PreviouslyCancelledTask::new(previous)),
                             )
                         });
 

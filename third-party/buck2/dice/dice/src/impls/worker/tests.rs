@@ -443,9 +443,7 @@ async fn spawn_with_previously_cancelled_task_that_cancelled() {
 
     previous_task.cancel(CancellationReason::ByTest);
 
-    let previously_cancelled_task = Some(PreviouslyCancelledTask {
-        previous: previous_task,
-    });
+    let previously_cancelled_task = Some(PreviouslyCancelledTask::new(previous_task));
 
     let is_ran = Arc::new(AtomicBool::new(false));
     let k = dice.key_index.index_key(IsRan(is_ran.dupe()));
@@ -520,9 +518,7 @@ async fn spawn_with_previously_cancelled_task_that_finished() {
         .unwrap();
     previous_task.cancel(CancellationReason::ByTest);
 
-    let previously_cancelled_task = Some(PreviouslyCancelledTask {
-        previous: previous_task,
-    });
+    let previously_cancelled_task = Some(PreviouslyCancelledTask::new(previous_task));
 
     let is_ran = Arc::new(AtomicBool::new(false));
     let k = dice.key_index.index_key(IsRan(is_ran.dupe()));
@@ -691,9 +687,7 @@ async fn spawn_with_previously_cancelled_task_nested_cancelled() -> anyhow::Resu
         eval.dupe(),
         cycles,
         events_dispatcher.dupe(),
-        Some(PreviouslyCancelledTask {
-            previous: first_task,
-        }),
+        Some(PreviouslyCancelledTask::new(first_task)),
     );
 
     second_task.cancel(CancellationReason::ByTest);
@@ -705,9 +699,7 @@ async fn spawn_with_previously_cancelled_task_nested_cancelled() -> anyhow::Resu
         eval,
         cycles,
         events_dispatcher,
-        Some(PreviouslyCancelledTask {
-            previous: second_task,
-        }),
+        Some(PreviouslyCancelledTask::new(second_task)),
     );
 
     let promise = third_task.depended_on_by(ParentKey::None).unwrap();

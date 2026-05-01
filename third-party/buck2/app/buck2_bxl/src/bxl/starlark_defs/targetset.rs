@@ -39,6 +39,18 @@ use crate::bxl::starlark_defs::alloc_node::AllocNode;
 
 pub(crate) trait NodeLike = QueryTarget + std::fmt::Debug + Eq + Dupe + AllocNode + Allocative;
 
+unsafe impl<N: QueryTarget + 'static> starlark::pagable::VtableRegistered for StarlarkTargetSet<N> {}
+
+starlark::register_simple_vtable_entry!(
+    StarlarkTargetSet<buck2_node::nodes::unconfigured::TargetNode>
+);
+starlark::register_simple_vtable_entry!(
+    StarlarkTargetSet<buck2_node::nodes::configured::ConfiguredTargetNode>
+);
+starlark::register_simple_vtable_entry!(
+    StarlarkTargetSet<buck2_build_api::actions::query::ActionQueryNode>
+);
+
 #[derive(Debug, Display, Clone)]
 #[derive(NoSerialize, Allocative)] // TODO maybe this should be
 /// The StarlarkValue implementation for TargetSet to expose it to starlark.

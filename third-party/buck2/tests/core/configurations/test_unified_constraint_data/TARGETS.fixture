@@ -13,6 +13,10 @@ constraint(
         "windows",
     ],
     default = "linux",
+    aliases = {
+        "apple": "macos",
+        "penguin": "linux",
+    },
 )
 
 platform(

@@ -101,3 +101,42 @@ async def test_unified_constraint_zero_values_with_flag_fail(buck: Buck) -> None
         output=sanitize_stderr(res.stderr),
         rel_path="golden/zero_values_with_flag.golden.stderr",
     )
+
+
+@buck_test()
+async def test_unified_constraint_alias_conflict_with_value_fail(
+    buck: Buck,
+) -> None:
+    res = await expect_failure(
+        buck.audit("subtargets", "//alias_conflict_with_value:", "-v0"),
+    )
+    golden(
+        output=sanitize_stderr(res.stderr),
+        rel_path="golden/alias_conflict_with_value.golden.stderr",
+    )
+
+
+@buck_test()
+async def test_unified_constraint_alias_value_not_declared_fail(
+    buck: Buck,
+) -> None:
+    res = await expect_failure(
+        buck.audit("subtargets", "//alias_value_not_declared:", "-v0"),
+    )
+    golden(
+        output=sanitize_stderr(res.stderr),
+        rel_path="golden/alias_value_not_declared.golden.stderr",
+    )
+
+
+@buck_test()
+async def test_unified_constraint_alias_reserved_keyword_fail(
+    buck: Buck,
+) -> None:
+    res = await expect_failure(
+        buck.audit("subtargets", "//alias_reserved_keyword:", "-v0"),
+    )
+    golden(
+        output=sanitize_stderr(res.stderr),
+        rel_path="golden/alias_reserved_keyword.golden.stderr",
+    )

@@ -1519,19 +1519,19 @@ impl InvocationRecorder {
                 }
                 _ => {}
             },
-            Some(buck2_data::executor_stage_start::Stage::Local(local_stage))
-                if let Some(buck2_data::local_stage::Stage::Execute(_)) = &local_stage.stage =>
-            {
-                self.executor_stages_by_span
-                    .insert(span_id.into(), ExecutorStageType::LocalAction);
-                self.current_in_progress_local_actions =
-                    self.current_in_progress_local_actions.saturating_add(1);
-                self.max_in_progress_local_actions = max(
-                    self.max_in_progress_local_actions,
-                    self.current_in_progress_local_actions,
-                );
-                self.time_to_first_command_execution_start
-                    .get_or_insert_with(|| duration_since(event.timestamp(), self.start_time));
+            Some(buck2_data::executor_stage_start::Stage::Local(local_stage)) => {
+                if let Some(buck2_data::local_stage::Stage::Execute(_)) = &local_stage.stage {
+                    self.executor_stages_by_span
+                        .insert(span_id.into(), ExecutorStageType::LocalAction);
+                    self.current_in_progress_local_actions =
+                        self.current_in_progress_local_actions.saturating_add(1);
+                    self.max_in_progress_local_actions = max(
+                        self.max_in_progress_local_actions,
+                        self.current_in_progress_local_actions,
+                    );
+                    self.time_to_first_command_execution_start
+                        .get_or_insert_with(|| duration_since(event.timestamp(), self.start_time));
+                }
             }
             _ => {}
         }

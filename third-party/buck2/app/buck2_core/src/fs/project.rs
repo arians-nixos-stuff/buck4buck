@@ -321,16 +321,9 @@ impl ProjectRoot {
                 format!("`write_file` for `{abs_path}` creating directory `{parent}`")
             })?;
         }
-        fs_util::write(&abs_path, contents)
+        fs_util::write_with_executable_bit(&abs_path, contents, executable)
             .categorize_internal()
             .with_buck_error_context(|| format!("`write_file` writing `{abs_path}`"))?;
-        if executable {
-            fs_util::set_executable(&abs_path, true)
-                .categorize_internal()
-                .with_buck_error_context(|| {
-                    format!("`write_file` setting executable `{abs_path}`")
-                })?;
-        }
         Ok(())
     }
 
@@ -348,13 +341,16 @@ impl ProjectRoot {
         }
         let file = File::create(&abs_path)
             .with_buck_error_context(|| format!("`create_file` creating `{abs_path}`"))?;
+        #[cfg(unix)]
         if executable {
-            fs_util::set_executable(&abs_path, true)
-                .categorize_internal()
+            use std::os::unix::fs::PermissionsExt;
+            file.set_permissions(std::fs::Permissions::from_mode(0o755))
                 .with_buck_error_context(|| {
                     format!("`create_file` setting executable `{abs_path}`")
                 })?;
         }
+        #[cfg(not(unix))]
+        let _ = executable;
         Ok(file)
     }
 

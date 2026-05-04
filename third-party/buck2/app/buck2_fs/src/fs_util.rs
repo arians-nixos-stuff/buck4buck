@@ -399,6 +399,27 @@ pub fn write<P: AsRef<AbsPath>, C: AsRef<[u8]>>(path: P, contents: C) -> Result<
         .map_err(|e| IoError::new_with_path("write", path, e))
 }
 
+/// Write `contents` to `path` and apply the executable bit when opening / creating the file.
+pub fn write_with_executable_bit<P: AsRef<AbsPath>, C: AsRef<[u8]>>(
+    path: P,
+    contents: C,
+    executable: bool,
+) -> Result<(), IoError> {
+    let _guard = IoCounterKey::Write.guard();
+    with_retries(|| {
+        let mut file = fs::File::create(path.as_ref().as_maybe_relativized())?;
+        #[cfg(unix)]
+        if executable {
+            use std::os::unix::fs::PermissionsExt;
+            file.set_permissions(fs::Permissions::from_mode(0o755))?;
+        }
+        #[cfg(not(unix))]
+        let _ = executable;
+        file.write_all(contents.as_ref())
+    })
+    .map_err(|e| IoError::new_with_path("write_with_executable_bit", path, e))
+}
+
 pub fn metadata<P: AsRef<AbsPath>>(path: P) -> Result<fs::Metadata, IoError> {
     let _guard = IoCounterKey::Stat.guard();
     with_retries(|| fs::metadata(path.as_ref().as_maybe_relativized()))
@@ -823,6 +844,14 @@ pub mod uncategorized {
         contents: C,
     ) -> buck2_error::Result<()> {
         super::write(path, contents).uncategorized()
+    }
+
+    pub fn write_with_executable_bit<P: AsRef<AbsPath>, C: AsRef<[u8]>>(
+        path: P,
+        contents: C,
+        executable: bool,
+    ) -> buck2_error::Result<()> {
+        super::write_with_executable_bit(path, contents, executable).uncategorized()
     }
 
     pub fn metadata<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<fs::Metadata> {

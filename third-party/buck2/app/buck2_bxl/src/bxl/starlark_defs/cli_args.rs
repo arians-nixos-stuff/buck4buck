@@ -872,7 +872,22 @@ impl CliArgType {
 
 #[starlark_module]
 pub(crate) fn cli_args_module(registry: &mut GlobalsBuilder) {
-    /// Takes an arg from cli, and gets a string in bxl
+    /// Takes an arg from cli, and gets a string in bxl.
+    ///
+    /// ### Examples
+    ///
+    /// Declaration:
+    /// ```python
+    /// cli_args = {
+    ///     "name": cli_args.string(),
+    ///     "greeting": cli_args.string("hello"),  # with default
+    /// }
+    /// ```
+    ///
+    /// CLI usage:
+    /// ```text
+    /// buck2 bxl //my.bxl:target -- --name foo
+    /// ```
     fn string<'v>(
         default: Option<Value<'v>>,
         #[starlark(default = "")] doc: &str,
@@ -881,9 +896,26 @@ pub(crate) fn cli_args_module(registry: &mut GlobalsBuilder) {
         Ok(CliArgs::new(default, doc, CliArgType::string(), short)?)
     }
 
-    /// Takes a list of args from cli, and gets a list of inner type in bxl.
+    /// Takes a list of args from cli, and gets a list of the inner type in bxl.
     ///
-    /// e.g. `cli.args.list(cli.args.string())` declares that the cli flag takes a list of args from cli, and gets a list of strings in bxl.
+    /// ### Examples
+    ///
+    /// Declaration:
+    /// ```python
+    /// cli_args = {
+    ///     "numbers": cli_args.list(cli_args.int()),
+    ///     "names": cli_args.list(cli_args.string()),
+    /// }
+    /// ```
+    ///
+    /// Multiple values can be passed either as space-separated values after a single flag,
+    /// or by repeating the flag. Both styles produce the same result and can be mixed:
+    /// ```text
+    /// buck2 bxl //my.bxl:target -- --numbers 1 2 3
+    /// buck2 bxl //my.bxl:target -- --numbers 1 --numbers 2 --numbers 3
+    /// ```
+    ///
+    /// Both invocations above yield `[1, 2, 3]` in `ctx.cli_args.numbers`.
     fn list<'v>(
         #[starlark(require = pos)] inner: &CliArgs,
         default: Option<Value<'v>>,
@@ -894,7 +926,23 @@ pub(crate) fn cli_args_module(registry: &mut GlobalsBuilder) {
         Ok(CliArgs::new(default, doc, coercer, short)?)
     }
 
-    /// Accepts "true" or "false" from cli, and get a `bool` in bxl. If not given, will get `false`
+    /// Accepts "true" or "false" from cli, and gets a `bool` in bxl. Defaults to `false` if
+    /// no explicit default is provided.
+    ///
+    /// ### Examples
+    ///
+    /// Declaration:
+    /// ```python
+    /// cli_args = {
+    ///     "verbose": cli_args.bool(),         # defaults to false
+    ///     "dry_run": cli_args.bool(True),     # defaults to true
+    /// }
+    /// ```
+    ///
+    /// CLI usage:
+    /// ```text
+    /// buck2 bxl //my.bxl:target -- --verbose true
+    /// ```
     fn bool<'v>(
         #[starlark(default = false)] default: Value<'v>,
         #[starlark(default = "")] doc: &str,
@@ -903,7 +951,21 @@ pub(crate) fn cli_args_module(registry: &mut GlobalsBuilder) {
         Ok(CliArgs::new(Some(default), doc, CliArgType::bool(), short)?)
     }
 
-    /// Takes an arg from cli, and gets a `int` in bxl
+    /// Takes an arg from cli, and gets an `int` in bxl.
+    ///
+    /// ### Examples
+    ///
+    /// Declaration:
+    /// ```python
+    /// cli_args = {
+    ///     "count": cli_args.int(),
+    /// }
+    /// ```
+    ///
+    /// CLI usage:
+    /// ```text
+    /// buck2 bxl //my.bxl:target -- --count 42
+    /// ```
     fn int<'v>(
         default: Option<Value<'v>>,
         #[starlark(default = "")] doc: &str,
@@ -912,7 +974,21 @@ pub(crate) fn cli_args_module(registry: &mut GlobalsBuilder) {
         Ok(CliArgs::new(default, doc, CliArgType::int(), short)?)
     }
 
-    /// Takes an arg from cli, and gets a `float` in bxl
+    /// Takes an arg from cli, and gets a `float` in bxl.
+    ///
+    /// ### Examples
+    ///
+    /// Declaration:
+    /// ```python
+    /// cli_args = {
+    ///     "threshold": cli_args.float(),
+    /// }
+    /// ```
+    ///
+    /// CLI usage:
+    /// ```text
+    /// buck2 bxl //my.bxl:target -- --threshold 3.14
+    /// ```
     fn float<'v>(
         default: Option<Value<'v>>,
         #[starlark(default = "")] doc: &str,
@@ -921,9 +997,22 @@ pub(crate) fn cli_args_module(registry: &mut GlobalsBuilder) {
         Ok(CliArgs::new(default, doc, CliArgType::float(), short)?)
     }
 
-    /// Takes a arg from cli, and gets an inner type in bxl. If not given, will get `None` in bxl.
+    /// Takes an arg from cli, and gets the inner type in bxl. If not given, will get `None` in bxl.
     ///
-    /// e.g. `cli.args.option(cli.args.int())` defines an optional int arg.
+    /// ### Examples
+    ///
+    /// Declaration:
+    /// ```python
+    /// cli_args = {
+    ///     "message": cli_args.option(cli_args.string()),
+    ///     "limit": cli_args.option(cli_args.int()),
+    /// }
+    /// ```
+    ///
+    /// CLI usage (omitting the flag yields `None` in bxl):
+    /// ```text
+    /// buck2 bxl //my.bxl:target -- --message "hello"
+    /// ```
     fn option<'v>(
         inner: &CliArgs,
         #[starlark(default = "")] doc: &str,
@@ -935,8 +1024,21 @@ pub(crate) fn cli_args_module(registry: &mut GlobalsBuilder) {
     }
 
     /// Takes a set of defined values in `variants`, and gets a `str` in bxl.
+    /// Only the specified variant strings are accepted; any other value is an error.
     ///
-    /// e.g. `cli.args.enumeration(["foo", "bar"])` defines an arg that only accepts "foo" or "bar".
+    /// ### Examples
+    ///
+    /// Declaration:
+    /// ```python
+    /// cli_args = {
+    ///     "mode": cli_args.enum(["debug", "release"]),
+    /// }
+    /// ```
+    ///
+    /// CLI usage:
+    /// ```text
+    /// buck2 bxl //my.bxl:target -- --mode debug
+    /// ```
     fn r#enum<'v>(
         #[starlark(require = pos)] variants: UnpackListOrTuple<String>,
         default: Option<Value<'v>>,
@@ -957,6 +1059,20 @@ pub(crate) fn cli_args_module(registry: &mut GlobalsBuilder) {
     /// Takes an arg from cli, and gets a parsed `TargetLabel` in bxl.
     ///
     /// **Note**: this will not check if the target is valid.
+    ///
+    /// ### Examples
+    ///
+    /// Declaration:
+    /// ```python
+    /// cli_args = {
+    ///     "target": cli_args.target_label(),
+    /// }
+    /// ```
+    ///
+    /// CLI usage:
+    /// ```text
+    /// buck2 bxl //my.bxl:target -- --target cell//package:rule
+    /// ```
     fn target_label<'v>(
         #[starlark(default = "")] doc: &str,
         #[starlark(require = named)] short: Option<Value<'v>>,
@@ -965,7 +1081,21 @@ pub(crate) fn cli_args_module(registry: &mut GlobalsBuilder) {
     }
 
     /// Takes an arg from cli, and gets a parsed `ConfiguredTargetLabel` in bxl.
-    /// The target can be configured using either ?modifier syntax or --modifier flag, in addition to --target-platforms flag.
+    /// The target can be configured using either `?modifier` syntax or `--modifier` flag, in addition to `--target-platforms` flag.
+    ///
+    /// ### Examples
+    ///
+    /// Declaration:
+    /// ```python
+    /// cli_args = {
+    ///     "target": cli_args.configured_target_label(),
+    /// }
+    /// ```
+    ///
+    /// CLI usage:
+    /// ```text
+    /// buck2 bxl //my.bxl:target -- --target cell//package:rule?cell//config:platform
+    /// ```
     fn configured_target_label<'v>(
         #[starlark(default = "")] doc: &str,
         #[starlark(require = named)] short: Option<Value<'v>>,
@@ -981,6 +1111,20 @@ pub(crate) fn cli_args_module(registry: &mut GlobalsBuilder) {
     /// Takes an arg from cli, and gets a parsed `ProvidersLabel` in bxl.
     ///
     /// **Note**: this will not check if the target is valid.
+    ///
+    /// ### Examples
+    ///
+    /// Declaration:
+    /// ```python
+    /// cli_args = {
+    ///     "provider": cli_args.sub_target(),
+    /// }
+    /// ```
+    ///
+    /// CLI usage:
+    /// ```text
+    /// buck2 bxl //my.bxl:target -- --provider cell//package:rule[subtarget]
+    /// ```
     fn sub_target<'v>(
         #[starlark(default = "")] doc: &str,
         #[starlark(require = named)] short: Option<Value<'v>>,
@@ -988,8 +1132,22 @@ pub(crate) fn cli_args_module(registry: &mut GlobalsBuilder) {
         Ok(CliArgs::new(None, doc, CliArgType::sub_target(), short)?)
     }
 
-    /// Takes an arg from the cli, and treats it as a target pattern, e.g. "cell//foo:bar", "cell//foo:", or "cell//foo/...".
-    /// We will get a list of `TargetLabel` in bxl.
+    /// Takes an arg from the cli, and treats it as a target pattern.
+    /// Resolves the pattern and returns a list of `TargetLabel` in bxl.
+    ///
+    /// ### Examples
+    ///
+    /// Declaration:
+    /// ```python
+    /// cli_args = {
+    ///     "targets": cli_args.target_expr(),
+    /// }
+    /// ```
+    ///
+    /// CLI usage (accepts patterns like `cell//foo:bar`, `cell//foo:`, or `cell//foo/...`):
+    /// ```text
+    /// buck2 bxl //my.bxl:target -- --targets cell//package/...
+    /// ```
     fn target_expr<'v>(
         #[starlark(default = "")] doc: &str,
         #[starlark(require = named)] short: Option<Value<'v>>,
@@ -997,9 +1155,23 @@ pub(crate) fn cli_args_module(registry: &mut GlobalsBuilder) {
         Ok(CliArgs::new(None, doc, CliArgType::target_expr(), short)?)
     }
 
-    /// Takes an arg from the cli, and treats it as a target pattern, e.g. "cell//foo:bar", "cell//foo:", or "cell//foo/..."
-    /// The target can be configured using either ?modifier syntax or --modifier flag, in addition to --target-platforms flag.
-    /// We will get a list of `ConfiguredTargetLabel` in bxl.
+    /// Takes an arg from the cli, and treats it as a target pattern.
+    /// The target can be configured using either `?modifier` syntax or `--modifier` flag, in addition to `--target-platforms` flag.
+    /// Resolves the pattern and returns a list of `ConfiguredTargetLabel` in bxl.
+    ///
+    /// ### Examples
+    ///
+    /// Declaration:
+    /// ```python
+    /// cli_args = {
+    ///     "targets": cli_args.configured_target_expr(),
+    /// }
+    /// ```
+    ///
+    /// CLI usage (accepts patterns like `cell//foo:bar`, `cell//foo:`, or `cell//foo/...`):
+    /// ```text
+    /// buck2 bxl //my.bxl:target -- --targets cell//package:rule?cell//config:platform
+    /// ```
     fn configured_target_expr<'v>(
         #[starlark(default = "")] doc: &str,
         #[starlark(require = named)] short: Option<Value<'v>>,
@@ -1012,7 +1184,22 @@ pub(crate) fn cli_args_module(registry: &mut GlobalsBuilder) {
         )?)
     }
 
-    /// Takes an arg from cli, and would be treated as a sub target pattern. We will get a list of `ProvidersLabel` in bxl.
+    /// Takes an arg from cli, and treats it as a sub target pattern.
+    /// Resolves the pattern and returns a list of `ProvidersLabel` in bxl.
+    ///
+    /// ### Examples
+    ///
+    /// Declaration:
+    /// ```python
+    /// cli_args = {
+    ///     "targets": cli_args.sub_target_expr(),
+    /// }
+    /// ```
+    ///
+    /// CLI usage:
+    /// ```text
+    /// buck2 bxl //my.bxl:target -- --targets cell//package:rule[subtarget]
+    /// ```
     fn sub_target_expr<'v>(
         #[starlark(default = "")] doc: &str,
         #[starlark(require = named)] short: Option<Value<'v>>,
@@ -1025,9 +1212,23 @@ pub(crate) fn cli_args_module(registry: &mut GlobalsBuilder) {
         )?)
     }
 
-    /// Takes an arg from cli, and would be treated as a json string, and return a json object in bxl.
+    /// Takes an arg from cli, parses it as a JSON string, and returns the parsed object in bxl.
     ///
-    /// **Note**: It will not accept a json file path, if you want to pass a json file path, you can use `cli_args.json_file()`
+    /// **Note**: Does not accept a file path. Use `cli_args.json_file()` to read JSON from a file.
+    ///
+    /// ### Examples
+    ///
+    /// Declaration:
+    /// ```python
+    /// cli_args = {
+    ///     "config": cli_args.json(),
+    /// }
+    /// ```
+    ///
+    /// CLI usage:
+    /// ```text
+    /// buck2 bxl //my.bxl:target -- --config '{"key": "value", "count": 3}'
+    /// ```
     fn json<'v>(
         #[starlark(default = "")] doc: &str,
         #[starlark(require = named)] short: Option<Value<'v>>,
@@ -1035,8 +1236,22 @@ pub(crate) fn cli_args_module(registry: &mut GlobalsBuilder) {
         Ok(CliArgs::new(None, doc, CliArgType::json(), short)?)
     }
 
-    /// Takes an arg from cli, and would be treated as a json file, and return a json object in bxl.
-    /// It support both relative and absolute path. If it's a relative path, it will be resolved relative to the buck project root.
+    /// Takes an arg from cli, reads the specified file as JSON, and returns the parsed object in bxl.
+    /// Supports both relative and absolute paths. Relative paths are resolved relative to the buck project root.
+    ///
+    /// ### Examples
+    ///
+    /// Declaration:
+    /// ```python
+    /// cli_args = {
+    ///     "config": cli_args.json_file(),
+    /// }
+    /// ```
+    ///
+    /// CLI usage:
+    /// ```text
+    /// buck2 bxl //my.bxl:target -- --config path/to/config.json
+    /// ```
     fn json_file<'v>(
         #[starlark(default = "")] doc: &str,
         #[starlark(require = named)] short: Option<Value<'v>>,

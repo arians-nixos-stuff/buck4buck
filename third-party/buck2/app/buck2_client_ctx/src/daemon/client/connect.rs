@@ -10,6 +10,8 @@
 
 use std::env;
 use std::ffi::OsStr;
+use std::fmt;
+use std::fmt::Display;
 use std::fs::File;
 use std::io::BufReader;
 use std::net::Ipv4Addr;
@@ -1148,18 +1150,139 @@ async fn daemon_connect_error(
 
         classify_server_stderr(error, &stderr)
     };
-    let delete_commad = if cfg!(windows) {
+    let delete_command = if cfg!(windows) {
         "rmdir /s /q %USERPROFILE%\\.buck\\buckd"
     } else {
         "rm -rf ~/.buck/buckd"
     };
-    // FIXME(ctolliday) we should check if the pid at daemon_dir.buckd_pid is still running before suggesting buck2 kill.
+    let daemon_process_info = BuckdProcessInfoDiagnostic::new(paths);
+
+    let kill_command = if daemon_process_info.process_exists() {
+        "running `buck2 kill` and your command afterwards.
+    Alternatively, try "
+    } else {
+        ""
+    };
+
     let error_message = format!(
         "Failed to connect to buck daemon.
-    Try running `buck2 kill` and your command afterwards.
-    Alternatively, try running `{delete_commad}` and your command afterwards"
+    {daemon_process_info}
+
+    Try {kill_command}running `{delete_command}` and your command afterwards"
     );
     error.context(error_message)
+}
+
+enum BuckdProcessInfoDiagnostic {
+    DaemonDirUnavailable(buck2_error::Error),
+    MissingBuckdInfo(DaemonDir),
+    LoadError {
+        daemon_dir: DaemonDir,
+        error: buck2_error::Error,
+    },
+    ProcessInfo {
+        daemon_dir: DaemonDir,
+        info: DaemonProcessInfo,
+        pid_present_on_system: Option<bool>,
+    },
+}
+
+impl BuckdProcessInfoDiagnostic {
+    fn new(paths: &InvocationPaths) -> Self {
+        let daemon_dir = match paths.daemon_dir() {
+            Ok(daemon_dir) => daemon_dir,
+            Err(e) => return BuckdProcessInfoDiagnostic::DaemonDirUnavailable(e),
+        };
+        let daemon_dir_for_load = daemon_dir.clone();
+
+        match BuckdProcessInfo::load_if_exists(&daemon_dir_for_load) {
+            Ok(Some(process_info)) => BuckdProcessInfoDiagnostic::ProcessInfo {
+                pid_present_on_system: pid_present_on_system(process_info.info.pid),
+                daemon_dir,
+                info: process_info.info,
+            },
+            Ok(None) => BuckdProcessInfoDiagnostic::MissingBuckdInfo(daemon_dir),
+            Err(e) => BuckdProcessInfoDiagnostic::LoadError {
+                daemon_dir,
+                error: e,
+            },
+        }
+    }
+
+    fn process_exists(&self) -> bool {
+        match self {
+            BuckdProcessInfoDiagnostic::ProcessInfo {
+                pid_present_on_system,
+                ..
+            } => *pid_present_on_system == Some(true),
+            _ => false,
+        }
+    }
+
+    fn pid_present_for_display(&self) -> &'static str {
+        match self {
+            BuckdProcessInfoDiagnostic::ProcessInfo {
+                pid_present_on_system,
+                ..
+            } => match pid_present_on_system {
+                Some(true) => "yes",
+                Some(false) => "no",
+                None => "unknown",
+            },
+            _ => "unknown",
+        }
+    }
+}
+
+// N.B. that if the daemon has already exited and the pid has been reused, this
+// may give incorrect results.
+fn pid_present_on_system(pid: i64) -> Option<bool> {
+    Pid::from_i64(pid)
+        .ok()
+        .and_then(|pid| process_exists(pid).ok())
+}
+
+impl Display for BuckdProcessInfoDiagnostic {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            BuckdProcessInfoDiagnostic::ProcessInfo {
+                daemon_dir, info, ..
+            } => write!(
+                f,
+                "Daemon process info from {}:
+    daemon dir: {}
+    pid: {}
+    endpoint: {}
+    version: {}
+    pid present on system: {}",
+                daemon_dir.buckd_info(),
+                daemon_dir.path,
+                info.pid,
+                info.endpoint,
+                info.version,
+                self.pid_present_for_display(),
+            ),
+            BuckdProcessInfoDiagnostic::MissingBuckdInfo(daemon_dir) => write!(
+                f,
+                "Daemon process info from {}:
+    daemon dir: {}
+    status: <missing>",
+                daemon_dir.buckd_info(),
+                daemon_dir.path,
+            ),
+            BuckdProcessInfoDiagnostic::LoadError { daemon_dir, error } => write!(
+                f,
+                "Daemon process info from {}:
+    daemon dir: {}
+    status: unavailable: {error:#}",
+                daemon_dir.buckd_info(),
+                daemon_dir.path,
+            ),
+            BuckdProcessInfoDiagnostic::DaemonDirUnavailable(error) => {
+                write!(f, "Daemon process info unavailable: {error:#}")
+            }
+        }
+    }
 }
 
 fn is_nested_invocation(
@@ -1319,6 +1442,96 @@ mod tests {
         assert!(req.satisfied(&daemon).is_ok());
         req.daemon_startup_config.daemon_buster = Some("1".to_owned());
         assert!(req.satisfied(&daemon).is_err());
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn test_format_daemon_process_info_active() {
+        let pid = i64::from(std::process::id());
+        let process_info = DaemonProcessInfo {
+            pid,
+            endpoint: "tcp:44805".to_owned(),
+            version: "92ca877522e06be7580a7ea2d622a3c06712322a".to_owned(),
+            auth_token: "redacted".to_owned(),
+        };
+        let daemon_dir = DaemonDir {
+            path: AbsNormPathBuf::new("/tmp/buckd".into()).expect("daemon dir should be valid"),
+        };
+        let wrapper = BuckdProcessInfoDiagnostic::ProcessInfo {
+            daemon_dir,
+            info: process_info,
+            pid_present_on_system: Some(true),
+        };
+
+        assert_eq!(
+            wrapper.to_string(),
+            format!(
+                "Daemon process info from /tmp/buckd/buckd.info:\n    daemon dir: /tmp/buckd\n    pid: {pid}\n    endpoint: tcp:44805\n    version: 92ca877522e06be7580a7ea2d622a3c06712322a\n    pid present on system: yes"
+            )
+        );
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn test_format_daemon_process_info_missing_pid() {
+        let process_info = DaemonProcessInfo {
+            pid: 999_999_999,
+            endpoint: "tcp:44805".to_owned(),
+            version: "92ca877522e06be7580a7ea2d622a3c06712322a".to_owned(),
+            auth_token: "redacted".to_owned(),
+        };
+        let daemon_dir = DaemonDir {
+            path: AbsNormPathBuf::new("/tmp/buckd".into()).expect("daemon dir should be valid"),
+        };
+        let wrapper = BuckdProcessInfoDiagnostic::ProcessInfo {
+            daemon_dir,
+            info: process_info,
+            pid_present_on_system: Some(false),
+        };
+
+        assert_eq!(
+            wrapper.to_string(),
+            "Daemon process info from /tmp/buckd/buckd.info:\n    daemon dir: /tmp/buckd\n    pid: 999999999\n    endpoint: tcp:44805\n    version: 92ca877522e06be7580a7ea2d622a3c06712322a\n    pid present on system: no"
+        );
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn test_format_daemon_process_info_missing_buckd_info() {
+        let daemon_dir = DaemonDir {
+            path: AbsNormPathBuf::new("/tmp/buckd".into()).expect("daemon dir should be valid"),
+        };
+
+        assert_eq!(
+            BuckdProcessInfoDiagnostic::MissingBuckdInfo(daemon_dir).to_string(),
+            "Daemon process info from /tmp/buckd/buckd.info:\n    daemon dir: /tmp/buckd\n    status: <missing>"
+        );
+    }
+
+    #[test]
+    fn test_format_daemon_process_info_daemon_dir_unavailable() {
+        assert_eq!(
+            BuckdProcessInfoDiagnostic::DaemonDirUnavailable(internal_error!("no daemon dir"))
+                .to_string(),
+            "Daemon process info unavailable: no daemon dir (internal error)"
+        );
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn test_format_daemon_process_info_load_error() {
+        let daemon_dir = DaemonDir {
+            path: AbsNormPathBuf::new("/tmp/buckd".into()).expect("daemon dir should be valid"),
+        };
+
+        assert_eq!(
+            BuckdProcessInfoDiagnostic::LoadError {
+                daemon_dir,
+                error: internal_error!("failed to load buckd.info"),
+            }
+            .to_string(),
+            "Daemon process info from /tmp/buckd/buckd.info:\n    daemon dir: /tmp/buckd\n    status: unavailable: failed to load buckd.info (internal error)"
+        );
     }
 
     #[test]

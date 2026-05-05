@@ -176,6 +176,21 @@ def sanitize_stderr(s: str) -> str:
     s = re.sub(
         r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b", "<UUID>", s
     )
+    # Sanitize daemon process info file paths.
+    s = re.sub(
+        r"^    Daemon process info from .+:?$",
+        "    Daemon process info from <BUCKD_INFO>",
+        s,
+        flags=re.MULTILINE,
+    )
+    s = re.sub(
+        r"^    daemon dir: .+$", "    daemon dir: <DAEMON_DIR>", s, flags=re.MULTILINE
+    )
+    s = re.sub(r"^    pid: \d+$", "    pid: <PID>", s, flags=re.MULTILINE)
+    s = re.sub(
+        r"^    endpoint: tcp:\d+$", "    endpoint: tcp:<PORT>", s, flags=re.MULTILINE
+    )
+    s = re.sub(r"^    version: \S+$", "    version: <VERSION>", s, flags=re.MULTILINE)
     # Remove "Commands" line
     s = re.sub(r"Commands: .+", "Commands: <COMMAND_STATS>", s)
     # Remove "Cache hits" percentage

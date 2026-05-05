@@ -2,6 +2,13 @@
 
 [<TIMESTAMP>] Starting new buck2 daemon...
 Command failed: Failed to connect to buck daemon.
+    Daemon process info from <BUCKD_INFO>
+    daemon dir: <DAEMON_DIR>
+    pid: <PID>
+    endpoint: tcp:<PORT>
+    version: <VERSION>
+    pid present on system: yes
+
     Try running `buck2 kill` and your command afterwards.
     Alternatively, try running `rm -rf ~/.buck/buckd` and your command afterwards
 

@@ -233,10 +233,10 @@ pub struct CommandExecutionResult {
     pub report: CommandExecutionReport,
     /// A previously rejected execution of this command.
     pub rejected_execution: Option<CommandExecutionReport>,
-    /// Whether this was uploaded to cache, by Buck2.
-    pub did_cache_upload: bool,
-    /// Whether dep file information for this action was uploaded to cache, by Buck2.
-    pub did_dep_file_cache_upload: bool,
+    /// Why the main action-result upload did or did not occur.
+    pub cache_upload_result: buck2_data::UploadResult,
+    /// Why dep file information for this action did or did not get uploaded to cache, by Buck2.
+    pub dep_file_cache_upload_result: buck2_data::UploadResult,
     // Remote dep file key, if we did upload a dep file entry
     pub dep_file_key: Option<DepFileDigest>,
     /// Whether this command was eligible for hybrid execution.

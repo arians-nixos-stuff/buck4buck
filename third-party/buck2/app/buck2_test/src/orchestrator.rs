@@ -1170,7 +1170,6 @@ impl BuckTestOrchestrator<'_> {
 
         let CommandExecutionResult {
             outputs,
-            did_cache_upload: _,
             report:
                 CommandExecutionReport {
                     std_streams,

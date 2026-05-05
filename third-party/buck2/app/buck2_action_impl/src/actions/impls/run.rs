@@ -1601,9 +1601,16 @@ impl Action for RunAction {
                 )
                 .await?;
 
-            result.did_cache_upload = upload_result.did_cache_upload;
-            result.did_dep_file_cache_upload = upload_result.did_dep_file_cache_upload;
+            result.cache_upload_result = upload_result.cache_upload_outcome.to_proto();
+            result.dep_file_cache_upload_result =
+                upload_result.dep_file_cache_upload_outcome.to_proto();
             result.dep_file_key = upload_result.dep_file_cache_upload_key;
+        } else if !result.was_success() {
+            result.cache_upload_result = buck2_data::UploadResult::ActionNotSuccessful;
+        } else if result.was_served_by_remote_dep_file_cache() {
+            result.cache_upload_result = buck2_data::UploadResult::RemoteDepFileCacheHit;
+        } else if !allow_cache_upload {
+            result.cache_upload_result = buck2_data::UploadResult::ActionUploadNotAllowed;
         }
 
         let was_locally_executed = result.was_locally_executed();

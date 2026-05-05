@@ -346,9 +346,9 @@ async fn build_action_inner(
     let mut prefers_local = None;
     let mut requires_local = None;
     let mut allows_cache_upload = None;
-    let mut did_cache_upload = None;
+    let mut cache_upload_result = None;
     let mut allows_dep_file_cache_upload = None;
-    let mut did_dep_file_cache_upload = None;
+    let mut dep_file_cache_upload_result = None;
     let mut dep_file_key = None;
     let mut eligible_for_full_hybrid = None;
 
@@ -373,9 +373,9 @@ async fn build_action_inner(
                 prefers_local = Some(command.prefers_local);
                 requires_local = Some(command.requires_local);
                 allows_cache_upload = Some(command.allows_cache_upload);
-                did_cache_upload = Some(command.did_cache_upload);
+                cache_upload_result = Some(command.cache_upload_result);
                 allows_dep_file_cache_upload = Some(command.allows_dep_file_cache_upload);
-                did_dep_file_cache_upload = Some(command.did_dep_file_cache_upload);
+                dep_file_cache_upload_result = Some(command.dep_file_cache_upload_result);
                 dep_file_key = *command.dep_file_key;
                 eligible_for_full_hybrid = Some(command.eligible_for_full_hybrid);
                 scheduling_mode = command.scheduling_mode;
@@ -403,7 +403,10 @@ async fn build_action_inner(
             let last_command = commands.last().cloned();
 
             let outputs = match &e {
-                ExecuteError::CommandExecutionError { action_outputs, .. } => Some(action_outputs),
+                ExecuteError::CommandExecutionError { action_outputs, .. } => {
+                    cache_upload_result = Some(buck2_data::UploadResult::ActionNotSuccessful);
+                    Some(action_outputs)
+                }
                 _ => None,
             };
 
@@ -480,6 +483,10 @@ async fn build_action_inner(
     };
 
     let execution_kind = execution_kind.unwrap_or(buck2_data::ActionExecutionKind::NotSet);
+    let cache_upload_result =
+        cache_upload_result.unwrap_or(buck2_data::UploadResult::NonCommandAction);
+    let dep_file_cache_upload_result =
+        dep_file_cache_upload_result.unwrap_or(buck2_data::UploadResult::NotAttempted);
 
     let re_platform_name = command_reports
         .last()
@@ -519,17 +526,9 @@ async fn build_action_inner(
             prefers_local: prefers_local.unwrap_or_default(),
             requires_local: requires_local.unwrap_or_default(),
             allows_cache_upload: allows_cache_upload.unwrap_or_default(),
-            cache_upload_result: if did_cache_upload.unwrap_or_default() {
-                buck2_data::UploadResult::Uploaded as i32
-            } else {
-                buck2_data::UploadResult::DidNotUploadUnspecified as i32
-            },
+            cache_upload_result: cache_upload_result as i32,
             allows_dep_file_cache_upload: allows_dep_file_cache_upload.unwrap_or_default(),
-            dep_file_cache_upload_result: if did_dep_file_cache_upload.unwrap_or_default() {
-                buck2_data::UploadResult::Uploaded as i32
-            } else {
-                buck2_data::UploadResult::DidNotUploadUnspecified as i32
-            },
+            dep_file_cache_upload_result: dep_file_cache_upload_result as i32,
             dep_file_key: dep_file_key.map(|d| d.to_string()),
             eligible_for_full_hybrid,
             buck2_revision,

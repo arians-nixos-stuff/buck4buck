@@ -138,9 +138,9 @@ pub enum ActionExecutionKind {
         prefers_local: bool,
         requires_local: bool,
         allows_cache_upload: bool,
-        did_cache_upload: bool,
+        cache_upload_result: buck2_data::UploadResult,
         allows_dep_file_cache_upload: bool,
-        did_dep_file_cache_upload: bool,
+        dep_file_cache_upload_result: buck2_data::UploadResult,
         eligible_for_full_hybrid: bool,
         dep_file_key: Option<DepFileDigest>,
         scheduling_mode: Option<SchedulingMode>,
@@ -166,13 +166,27 @@ pub struct CommandExecutionRef<'a> {
     pub prefers_local: bool,
     pub requires_local: bool,
     pub allows_cache_upload: bool,
-    pub did_cache_upload: bool,
+    pub cache_upload_result: buck2_data::UploadResult,
     pub allows_dep_file_cache_upload: bool,
-    pub did_dep_file_cache_upload: bool,
+    pub dep_file_cache_upload_result: buck2_data::UploadResult,
     pub eligible_for_full_hybrid: bool,
     pub scheduling_mode: Option<SchedulingMode>,
     pub dep_file_key: &'a Option<DepFileDigest>,
     pub incremental_kind: buck2_data::IncrementalKind,
+}
+
+pub(crate) const fn did_upload_from_upload_result(upload_result: buck2_data::UploadResult) -> bool {
+    matches!(upload_result, buck2_data::UploadResult::Uploaded)
+}
+
+impl CommandExecutionRef<'_> {
+    pub fn did_cache_upload(&self) -> bool {
+        did_upload_from_upload_result(self.cache_upload_result)
+    }
+
+    pub fn did_dep_file_cache_upload(&self) -> bool {
+        did_upload_from_upload_result(self.dep_file_cache_upload_result)
+    }
 }
 
 impl ActionExecutionKind {
@@ -195,9 +209,9 @@ impl ActionExecutionKind {
                 prefers_local,
                 requires_local,
                 allows_cache_upload,
-                did_cache_upload,
+                cache_upload_result,
                 allows_dep_file_cache_upload,
-                did_dep_file_cache_upload,
+                dep_file_cache_upload_result,
                 dep_file_key,
                 eligible_for_full_hybrid,
                 scheduling_mode,
@@ -208,9 +222,9 @@ impl ActionExecutionKind {
                 prefers_local: *prefers_local,
                 requires_local: *requires_local,
                 allows_cache_upload: *allows_cache_upload,
-                did_cache_upload: *did_cache_upload,
+                cache_upload_result: *cache_upload_result,
                 allows_dep_file_cache_upload: *allows_dep_file_cache_upload,
-                did_dep_file_cache_upload: *did_dep_file_cache_upload,
+                dep_file_cache_upload_result: *dep_file_cache_upload_result,
                 dep_file_key,
                 eligible_for_full_hybrid: *eligible_for_full_hybrid,
                 scheduling_mode: *scheduling_mode.dupe(),
@@ -535,8 +549,8 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
             outputs,
             report,
             rejected_execution,
-            did_cache_upload,
-            did_dep_file_cache_upload,
+            cache_upload_result,
+            dep_file_cache_upload_result,
             dep_file_key,
             eligible_for_full_hybrid,
             scheduling_mode,
@@ -563,9 +577,9 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
                             prefers_local: executor_preference.prefers_local(),
                             requires_local: executor_preference.requires_local(),
                             allows_cache_upload,
-                            did_cache_upload,
+                            cache_upload_result,
                             allows_dep_file_cache_upload,
-                            did_dep_file_cache_upload,
+                            dep_file_cache_upload_result,
                             dep_file_key,
                             eligible_for_full_hybrid,
                             scheduling_mode,

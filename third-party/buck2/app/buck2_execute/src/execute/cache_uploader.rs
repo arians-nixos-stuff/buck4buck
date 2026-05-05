@@ -13,6 +13,9 @@ use buck2_action_metadata_proto::RemoteDepFile;
 use buck2_core::buck2_env;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use remote_execution::TActionResult2;
+use remote_execution::TCode;
+use tracing::info;
+use tracing::warn;
 
 use crate::digest_config::DigestConfig;
 use crate::execute::action_digest_and_blobs::ActionDigestAndBlobs;
@@ -20,6 +23,7 @@ use crate::execute::dep_file_digest::DepFileDigest;
 use crate::execute::result::CommandExecutionResult;
 use crate::execute::target::CommandExecutionTarget;
 use crate::materialize::materializer::Materializer;
+use crate::re::error::RemoteExecutionError;
 
 pub struct CacheUploadInfo<'a> {
     pub target: &'a dyn CommandExecutionTarget,
@@ -47,9 +51,172 @@ pub trait IntoRemoteDepFile: Send {
 }
 
 pub struct CacheUploadResults {
-    pub did_cache_upload: bool,
-    pub did_dep_file_cache_upload: bool,
+    pub cache_upload_outcome: CacheUploadOutcome,
+    pub dep_file_cache_upload_outcome: DepFileCacheUploadOutcome,
     pub dep_file_cache_upload_key: Option<DepFileDigest>,
+}
+
+pub enum DepFileCacheUploadOutcome {
+    NoDepFileBundle,
+    UnsupportedExecutionKind,
+    Attempted(CacheUploadOutcome),
+}
+
+impl DepFileCacheUploadOutcome {
+    pub fn attempted(outcome: CacheUploadOutcome) -> Self {
+        Self::Attempted(outcome)
+    }
+
+    pub fn outcome(&self) -> Option<&CacheUploadOutcome> {
+        match self {
+            Self::NoDepFileBundle | Self::UnsupportedExecutionKind => None,
+            Self::Attempted(outcome) => Some(outcome),
+        }
+    }
+
+    pub fn uploaded(&self) -> bool {
+        match self {
+            Self::NoDepFileBundle | Self::UnsupportedExecutionKind => false,
+            Self::Attempted(outcome) => outcome.uploaded(),
+        }
+    }
+
+    pub fn to_proto(&self) -> buck2_data::UploadResult {
+        match self {
+            Self::NoDepFileBundle | Self::UnsupportedExecutionKind => {
+                buck2_data::UploadResult::NotAttempted
+            }
+            Self::Attempted(outcome) => outcome.to_proto(),
+        }
+    }
+}
+
+pub enum CacheUploadOutcome {
+    Success,
+    RejectedOutputExceedsLimit { max_bytes: u64 },
+    RejectedPermissionDenied { reason: String },
+    RejectedSymlinkOutput,
+    FailedUploadActionBlobs { error: buck2_error::Error },
+    FailedUploadOutputs { error: buck2_error::Error },
+    FailedWriteActionResult { error: buck2_error::Error },
+    FailedOther { error: buck2_error::Error },
+    ExecutorUploadDisabled,
+    HadDepFileBundle,
+    NonLocalExecution,
+}
+
+impl CacheUploadOutcome {
+    pub fn did_cache_upload(&self) -> bool {
+        matches!(self, Self::Success)
+    }
+
+    pub fn uploaded(&self) -> bool {
+        self.did_cache_upload()
+    }
+
+    pub fn to_proto(&self) -> buck2_data::UploadResult {
+        match self {
+            Self::Success => buck2_data::UploadResult::Uploaded,
+            Self::RejectedOutputExceedsLimit { .. } => {
+                buck2_data::UploadResult::RejectedOutputExceedsLimit
+            }
+            Self::RejectedPermissionDenied { .. } => {
+                buck2_data::UploadResult::RejectedPermissionDenied
+            }
+            Self::RejectedSymlinkOutput { .. } => buck2_data::UploadResult::RejectedSymlinkOutput,
+            Self::FailedUploadActionBlobs { .. } => {
+                buck2_data::UploadResult::FailedUploadActionBlobs
+            }
+            Self::FailedUploadOutputs { .. } => buck2_data::UploadResult::FailedUploadOutputs,
+            Self::FailedWriteActionResult { .. } => {
+                buck2_data::UploadResult::FailedWriteActionResult
+            }
+            Self::FailedOther { .. } => buck2_data::UploadResult::FailedOther,
+            Self::ExecutorUploadDisabled { .. } => buck2_data::UploadResult::ExecutorUploadDisabled,
+            Self::HadDepFileBundle => buck2_data::UploadResult::HadDepFileBundle,
+            Self::NonLocalExecution => buck2_data::UploadResult::NonLocalExecution,
+        }
+    }
+
+    pub fn error(&self) -> String {
+        match self {
+            Self::Success
+            | Self::ExecutorUploadDisabled { .. }
+            | Self::HadDepFileBundle
+            | Self::NonLocalExecution => String::new(),
+            Self::RejectedOutputExceedsLimit { max_bytes, .. } => {
+                format!("Rejected: OutputExceedsLimit({max_bytes})")
+            }
+            Self::RejectedPermissionDenied { reason, .. } => {
+                format!("Rejected: PermissionDenied (permission check error: {reason})")
+            }
+            Self::RejectedSymlinkOutput { .. } => "Rejected: SymlinkOutput".to_owned(),
+            Self::FailedUploadActionBlobs { error, .. }
+            | Self::FailedUploadOutputs { error, .. }
+            | Self::FailedWriteActionResult { error, .. }
+            | Self::FailedOther { error, .. } => format!("{:#}", error),
+        }
+    }
+
+    pub fn re_error_code(&self) -> Option<String> {
+        match self {
+            Self::Success
+            | Self::ExecutorUploadDisabled { .. }
+            | Self::HadDepFileBundle
+            | Self::NonLocalExecution => None,
+            Self::RejectedOutputExceedsLimit { .. } | Self::RejectedSymlinkOutput { .. } => None,
+            Self::RejectedPermissionDenied { .. } => Some(TCode::PERMISSION_DENIED.to_string()),
+            Self::FailedUploadActionBlobs { error, .. }
+            | Self::FailedUploadOutputs { error, .. }
+            | Self::FailedWriteActionResult { error, .. }
+            | Self::FailedOther { error, .. } => {
+                match error.find_typed_context::<RemoteExecutionError>() {
+                    Some(e) => Some(e.code.to_string()),
+                    _ => Some("OTHER_ERRORS".to_owned()),
+                }
+            }
+        }
+    }
+
+    pub fn log_and_create_result(
+        self,
+        digest_str: &str,
+        error_on_cache_upload: bool,
+    ) -> buck2_error::Result<Self> {
+        match &self {
+            Self::Success => {
+                info!("Cache upload for `{}` succeeded", digest_str);
+            }
+            Self::RejectedOutputExceedsLimit { .. }
+            | Self::RejectedPermissionDenied { .. }
+            | Self::RejectedSymlinkOutput { .. } => {
+                info!(
+                    "Cache upload for `{}` rejected: {}",
+                    digest_str,
+                    self.error()
+                );
+            }
+            Self::FailedUploadActionBlobs { .. }
+            | Self::FailedUploadOutputs { .. }
+            | Self::FailedWriteActionResult { .. }
+            | Self::FailedOther { .. } => {
+                warn!("Cache upload for `{}` failed: {}", digest_str, self.error());
+            }
+            Self::ExecutorUploadDisabled { .. }
+            | Self::HadDepFileBundle
+            | Self::NonLocalExecution => {
+                info!("Cache upload for `{}` not attempted", digest_str);
+            }
+        };
+        if !self.uploaded() && error_on_cache_upload {
+            Err(buck2_error::buck2_error!(
+                buck2_error::ErrorTag::CacheUploadFailed,
+                "cache_upload_failed"
+            ))
+        } else {
+            Ok(self)
+        }
+    }
 }
 
 // This is for quick testing of cache upload without configuring executors.
@@ -66,7 +233,7 @@ pub fn force_cache_upload() -> buck2_error::Result<bool> {
 pub trait UploadCache: Send + Sync {
     /// Given information about the command and its result, upload the result
     /// and related items to the cache.
-    /// Return a boolean to indicate whether a cache upload took place.
+    /// Return information about why the main action upload did or did not occur.
     async fn upload(
         &self,
         info: &CacheUploadInfo<'_>,
@@ -91,8 +258,8 @@ impl UploadCache for NoOpCacheUploader {
         _action_digest_and_blobs: &ActionDigestAndBlobs,
     ) -> buck2_error::Result<CacheUploadResults> {
         Ok(CacheUploadResults {
-            did_cache_upload: false,
-            did_dep_file_cache_upload: false,
+            cache_upload_outcome: CacheUploadOutcome::ExecutorUploadDisabled,
+            dep_file_cache_upload_outcome: DepFileCacheUploadOutcome::NoDepFileBundle,
             dep_file_cache_upload_key: None,
         })
     }

@@ -102,6 +102,18 @@ struct Args {
     /// Seed and Buffer keys but have separate GraphNode and Buffer instances.
     #[arg(long, default_value_t = 1)]
     shadows: u32,
+
+    /// Additional tokio worker threads beyond `available_parallelism()`.
+    #[arg(long, default_value_t = 0)]
+    extra_workers: u32,
+
+    /// Override absolute tokio worker count (overrides `--extra-workers`).
+    #[arg(long)]
+    workers: Option<u32>,
+
+    /// Disable tokio's per-worker LIFO slot.
+    #[arg(long, default_value_t = false)]
+    no_lifo: bool,
 }
 
 impl Args {
@@ -283,10 +295,33 @@ fn print_stats(label: &str, durations: &[Duration]) {
     );
 }
 
-#[tokio::main]
-async fn main() {
+fn main() {
     let args = Args::parse();
     ARGS.set(args).unwrap();
+
+    let mut builder = tokio::runtime::Builder::new_multi_thread();
+    builder.enable_all();
+    let default_workers = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(1);
+    let worker_count = args
+        .workers
+        .map(|w| w as usize)
+        .unwrap_or(default_workers + args.extra_workers as usize);
+    builder.worker_threads(worker_count);
+    if args.no_lifo {
+        builder.disable_lifo_slot();
+    }
+    let rt = builder.build().unwrap();
+    eprintln!(
+        "Runtime: workers={}, lifo={}",
+        worker_count,
+        if args.no_lifo { "disabled" } else { "enabled" },
+    );
+    rt.block_on(async_main());
+}
+
+async fn async_main() {
     let args = ARGS.get().unwrap();
 
     let total = args.total_nodes();

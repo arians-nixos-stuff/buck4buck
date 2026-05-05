@@ -14,7 +14,4 @@ python_library(
     # * with tests
     # * with public announcement
     visibility = visibility,
-    deps = [
-        "fbsource//third-party/pypi/psutil:psutil",
-    ],
 )

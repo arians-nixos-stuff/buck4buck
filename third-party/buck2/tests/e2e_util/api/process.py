@@ -23,12 +23,7 @@ from typing import (
     Union,
 )
 
-import psutil  # @manual=fbsource//third-party/pypi/psutil:psutil
 from buck2.tests.e2e_util.api.result import E, ExceptionType, R, ResultType
-
-
-def daemon_is_alive(pid: int) -> bool:
-    return psutil.pid_exists(pid)
 
 
 class Process(Generic[R, E], Awaitable[R]):

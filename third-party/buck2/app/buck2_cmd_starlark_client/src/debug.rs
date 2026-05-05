@@ -114,7 +114,6 @@ impl StreamingCommand for StarlarkDebugAttachCommand {
             },
             // The DAP server side does not handle hangups. So, until it does... we never hang up:
             || None,
-            || None,
         )
         .await??;
 

@@ -8,8 +8,6 @@
  * above-listed licenses.
  */
 
-use std::time::Duration;
-
 use async_trait::async_trait;
 use buck2_cli_proto::LspRequest;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
@@ -79,15 +77,15 @@ impl StreamingCommand for LspCommand {
                         events_ctx,
                         &mut partial_result_handler,
                     )
-                    .await??;
-
-                ExitResult::success()
+                    .await
             },
-            // The LSP server side does not handle hangups as a request, so there's nothing to send here. We simply drop the connection on the client side, and let the server detect the dropped command.
+            // The LSP server side does not handle hangups. So, until it does... we never hang up:
+            // Err(Status { code: FailedPrecondition, message: "received a message that is not a `StreamingRequest`", source: None })
             || None,
-            || Some((Duration::ZERO, ExitResult::success())),
         )
-        .await
+        .await??;
+
+        ExitResult::success()
     }
 
     fn console_opts(&self) -> &CommonConsoleOptions {

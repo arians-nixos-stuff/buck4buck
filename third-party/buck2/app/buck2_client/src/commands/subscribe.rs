@@ -8,12 +8,9 @@
  * above-listed licenses.
  */
 
-use std::time::Duration;
-
 use async_trait::async_trait;
 use buck2_cli_proto::protobuf_util::ProtobufSplitter;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
-use buck2_client_ctx::command_outcome::CommandOutcome;
 use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonEventLogOptions;
@@ -149,14 +146,6 @@ impl StreamingCommand for SubscribeCommand {
                             ),
                         }),
                     })
-                },
-                || {
-                    Some((
-                        Duration::from_secs(5),
-                        Ok(CommandOutcome::Success(
-                            buck2_cli_proto::SubscriptionCommandResponse {},
-                        )),
-                    ))
                 },
             )
             .await??;

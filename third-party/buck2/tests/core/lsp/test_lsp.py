@@ -9,15 +9,19 @@
 # pyre-strict
 
 
+import asyncio
+import json
 import os
 from pathlib import Path
 from typing import Any, Optional
 
 import pytest
 from buck2.tests.e2e_util.api.buck import Buck
+from buck2.tests.e2e_util.api.buck_result import BuckException
 from buck2.tests.e2e_util.api.fixtures import Fixture, Span
 from buck2.tests.e2e_util.api.lsp import LSPResponseError
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.api.process import daemon_is_alive
+from buck2.tests.e2e_util.buck_workspace import buck_test, env
 
 
 def _assert_range(range: dict[str, Any], expected: Optional[Span]) -> None:
@@ -60,11 +64,123 @@ def fixture(buck: Buck, path: Path) -> Fixture:
     return fixture
 
 
+async def _wait_for_exit(process: asyncio.subprocess.Process, timeout: float) -> bool:
+    try:
+        await asyncio.wait_for(process.wait(), timeout=timeout)
+        return True
+    except TimeoutError:
+        return False
+
+
+async def _kill_if_alive(process: asyncio.subprocess.Process) -> None:
+    if process.returncode is not None:
+        return
+
+    process.kill()
+    await asyncio.wait_for(process.wait(), timeout=30)
+
+
+async def _wait_for_file_to_contain(
+    path: Path,
+    substring: str,
+    timeout: float,
+) -> bool:
+    deadline = asyncio.get_running_loop().time() + timeout
+    while asyncio.get_running_loop().time() < deadline:
+        if path.exists() and substring in path.read_text():
+            return True
+        await asyncio.sleep(1)
+    return False
+
+
 @buck_test()
 async def test_lsp_starts(buck: Buck) -> None:
     async with await buck.lsp() as lsp:
         # Will fail if the initialize response is not received
         await lsp.init_connection()
+
+
+@buck_test()
+async def test_lsp_stdin_eof_currently_does_not_exit_client(
+    buck: Buck,
+) -> None:
+    lsp = await buck.lsp()
+    try:
+        assert lsp.process.stdin is not None
+        lsp.process.stdin.close()
+
+        exited = await _wait_for_exit(lsp.process, timeout=10)
+        assert not exited
+    finally:
+        await _kill_if_alive(lsp.process)
+
+
+@buck_test()
+@env("BUCK2_TESTING_INACTIVITY_TIMEOUT", "true")
+async def test_lsp_daemon_inactivity_shutdown_currently_does_not_exit_client(
+    buck: Buck,
+) -> None:
+    await buck.server()
+    status = await buck.status()
+    pid = json.loads(status.stdout)["process_info"]["pid"]
+    daemon_dir = await buck.get_daemon_dir()
+    daemon_stderr = daemon_dir / "buckd.stderr"
+
+    lsp = await buck.lsp()
+    try:
+        exited = await _wait_for_exit(lsp.process, timeout=10)
+        assert not exited
+        saw_inactivity_timeout = await _wait_for_file_to_contain(
+            daemon_stderr,
+            "inactivity timeout elapsed",
+            timeout=20,
+        )
+        assert saw_inactivity_timeout
+        assert daemon_is_alive(pid)
+    finally:
+        await _kill_if_alive(lsp.process)
+
+
+@buck_test(skip_for_os=["windows"])
+@env("BUCK2_TESTING_INACTIVITY_TIMEOUT", "true")
+@env("BUCKD_STARTUP_TIMEOUT", "90")
+async def test_lsp_daemon_inactivity_shutdown_currently_times_out_before_recovering_different_user_version(
+    buck: Buck,
+) -> None:
+    await buck.server()
+    status = await buck.status()
+    original_pid = json.loads(status.stdout)["process_info"]["pid"]
+    daemon_dir = await buck.get_daemon_dir()
+    daemon_stderr = daemon_dir / "buckd.stderr"
+    daemon_info = daemon_dir / "buckd.info"
+
+    lsp = await buck.lsp()
+    try:
+        exited = await _wait_for_exit(lsp.process, timeout=10)
+        assert not exited
+
+        saw_inactivity_timeout = await _wait_for_file_to_contain(
+            daemon_stderr,
+            "inactivity timeout elapsed",
+            timeout=20,
+        )
+        assert saw_inactivity_timeout
+        assert daemon_is_alive(original_pid)
+
+        info = json.loads(daemon_info.read_text())
+        info["version"] = "different-version"
+        daemon_info.write_text(json.dumps(info))
+
+        start = asyncio.get_running_loop().time()
+        with pytest.raises(BuckException) as exc:
+            await buck.server()
+        elapsed = asyncio.get_running_loop().time() - start
+
+        assert elapsed >= 90
+        assert "Failed to connect to buck daemon." in exc.value.stderr
+        assert "version: different-version" in exc.value.stderr
+    finally:
+        await _kill_if_alive(lsp.process)
 
 
 @buck_test()

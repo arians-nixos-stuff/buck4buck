@@ -47,7 +47,7 @@ async def test_sh_test(buck: Buck) -> None:
         buck.test(
             "fbcode//buck2/tests/targets/rules/sh_test:test_fail",
         ),
-        stderr_regex=r"1 TESTS FAILED\n(\s)+✗ fbcode\/\/buck2\/tests\/targets\/rules\/sh_test:test_fail - main",
+        stderr_regex=r"1 TESTS FAILED\n(\s)+✗ fbcode\/\/buck2\/tests\/targets\/rules\/sh_test:test_fail - unmanaged",
     )
 
 

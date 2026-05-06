@@ -59,12 +59,14 @@ use crate::dynamic::dynamic_actions::StarlarkDynamicActionsData;
 pub struct DynamicActionsCallbackParamSpec;
 
 pub struct DynamicActionsCallbackParam {
-    pub name: &'static str,
+    pub name: pagable::StaticStr,
     pub ty: LazyLock<Ty>,
 }
 
+pagable::static_str!(P_ACTIONS_NAME = "actions");
+
 pub(crate) static P_ACTIONS: DynamicActionsCallbackParam = DynamicActionsCallbackParam {
-    name: "actions",
+    name: P_ACTIONS_NAME,
     ty: LazyLock::new(AnalysisActions::starlark_type_repr),
 };
 

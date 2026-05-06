@@ -274,8 +274,10 @@ pub(crate) fn init_eval_bxl_for_dynamic_output() {
     );
 }
 
+pagable::static_str!(P_BXLCTX_NAME = "bxl_ctx");
+
 static P_BXLCTX: DynamicActionsCallbackParam = DynamicActionsCallbackParam {
-    name: "bxl_ctx",
+    name: P_BXLCTX_NAME,
     ty: LazyLock::new(BxlContext::starlark_type_repr),
 };
 

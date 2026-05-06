@@ -130,7 +130,7 @@ pub fn invoke_dynamic_output_lambda<'v>(
             actions,
             attr_values,
         } => {
-            named = iter::once((P_ACTIONS.name, actions.to_value()))
+            named = iter::once((P_ACTIONS.name.as_str(), actions.to_value()))
                 .chain(attr_values.iter().map(|(k, v)| (k.as_str(), *v)))
                 .collect::<Vec<(&str, Value)>>();
             (&[], &named)

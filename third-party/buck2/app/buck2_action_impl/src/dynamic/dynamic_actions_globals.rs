@@ -42,7 +42,7 @@ pub fn new_dynamic_actions_callable<'v>(
     attrs: SmallMap<String, &'v StarlarkDynamicAttrType>,
     callback_param: &DynamicActionsCallbackParam,
 ) -> buck2_error::Result<DynamicActionsCallable<'v>> {
-    if attrs.contains_key(callback_param.name) {
+    if attrs.contains_key(callback_param.name.as_str()) {
         return Err(buck2_error!(
             buck2_error::ErrorTag::Input,
             "Cannot define `actions` attribute"
@@ -62,7 +62,7 @@ pub fn new_dynamic_actions_callable<'v>(
         .0
         .check_callable_with(
             [],
-            iter::once((callback_param.name, &*callback_param.ty))
+            iter::once((callback_param.name.as_str(), &*callback_param.ty))
                 .chain(attr_args.iter().map(|(name, ty)| (*name, ty))),
             None,
             None,

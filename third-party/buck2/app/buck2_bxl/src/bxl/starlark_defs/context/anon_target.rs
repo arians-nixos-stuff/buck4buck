@@ -75,6 +75,9 @@ use crate::bxl::starlark_defs::eval_extra::BxlEvalExtra;
 
 struct BxlAnonCallbackParamSpec;
 
+pagable::static_str!(BXL_ANON_BXL_CTX = "bxl_ctx");
+pagable::static_str!(BXL_ANON_ATTRS = "attrs");
+
 impl StarlarkCallableParamSpec for BxlAnonCallbackParamSpec {
     fn params() -> ParamSpec {
         ParamSpec::new_parts(
@@ -83,12 +86,12 @@ impl StarlarkCallableParamSpec for BxlAnonCallbackParamSpec {
             None,
             [
                 (
-                    ArcStr::new_static("bxl_ctx"),
+                    ArcStr::new_static(BXL_ANON_BXL_CTX),
                     ParamIsRequired::Yes,
                     BxlContext::starlark_type_repr(),
                 ),
                 (
-                    ArcStr::new_static("attrs"),
+                    ArcStr::new_static(BXL_ANON_ATTRS),
                     ParamIsRequired::Yes,
                     StructRef::starlark_type_repr(),
                 ),

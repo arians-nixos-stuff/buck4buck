@@ -181,20 +181,24 @@ impl TransitionValue for FrozenTransition {
 }
 
 pub(crate) struct ParamNameAndType {
-    pub(crate) name: &'static str,
+    pub(crate) name: pagable::StaticStr,
     pub(crate) ty: LazyLock<Ty>,
 }
 
+pagable::static_str!(IMPL_PLATFORM_NAME = "platform");
+pagable::static_str!(IMPL_REFS_NAME = "refs");
+pagable::static_str!(IMPL_ATTRS_NAME = "attrs");
+
 pub(crate) static IMPL_PLATFORM_PARAM: ParamNameAndType = ParamNameAndType {
-    name: "platform",
+    name: IMPL_PLATFORM_NAME,
     ty: LazyLock::new(PlatformInfo::starlark_type_repr),
 };
 static IMPL_REFS_PARAM: ParamNameAndType = ParamNameAndType {
-    name: "refs",
+    name: IMPL_REFS_NAME,
     ty: LazyLock::new(StructRef::starlark_type_repr),
 };
 pub(crate) static IMPL_ATTRS_PARAM: ParamNameAndType = ParamNameAndType {
-    name: "attrs",
+    name: IMPL_ATTRS_NAME,
     ty: LazyLock::new(StructRef::starlark_type_repr),
 };
 
@@ -241,12 +245,12 @@ fn validate_transition_impl(
         .check_callable_with(
             [],
             [
-                (IMPL_PLATFORM_PARAM.name, &*IMPL_PLATFORM_PARAM.ty),
-                (IMPL_REFS_PARAM.name, &*IMPL_REFS_PARAM.ty),
+                (IMPL_PLATFORM_PARAM.name.as_str(), &*IMPL_PLATFORM_PARAM.ty),
+                (IMPL_REFS_PARAM.name.as_str(), &*IMPL_REFS_PARAM.ty),
             ]
             .into_iter()
             .chain(match attrs {
-                true => Some((IMPL_ATTRS_PARAM.name, &*IMPL_ATTRS_PARAM.ty)),
+                true => Some((IMPL_ATTRS_PARAM.name.as_str(), &*IMPL_ATTRS_PARAM.ty)),
                 false => None,
             }),
             None,

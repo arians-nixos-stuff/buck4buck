@@ -15,7 +15,6 @@ use buck2_error::internal_error;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::FrozenModule;
 use starlark::environment::Module;
-use starlark::register_any_complex_frozen;
 use starlark::values::Freeze;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
@@ -39,7 +38,7 @@ pub(crate) struct FrozenInterpreterExtraValue {
     pub(crate) package_extra: Option<FrozenPackageFileExtra>,
 }
 
-register_any_complex_frozen!(FrozenInterpreterExtraValue);
+starlark::register_starlark_any_complex!(InterpreterExtraValue<'_>, frozen FrozenInterpreterExtraValue);
 
 impl<'v> Freeze for InterpreterExtraValue<'v> {
     type Frozen = FrozenInterpreterExtraValue;

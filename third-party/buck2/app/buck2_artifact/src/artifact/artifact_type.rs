@@ -118,8 +118,8 @@ impl Artifact {
         match &key.base {
             BaseArtifactKind::Source(_) => None,
             BaseArtifactKind::Build(artifact) => Some({
-                let artifact = StarlarkAnyComplex::new(RefCell::new(DeclaredArtifactKind::Bound(
-                    artifact.dupe(),
+                let artifact = StarlarkAnyComplex::new(DeclaredArtifactCell(RefCell::new(
+                    DeclaredArtifactKind::Bound(artifact.dupe()),
                 )));
                 DeclaredArtifact {
                     artifact: ValueTyped::new_err(heap.alloc_complex_no_freeze(artifact))
@@ -371,7 +371,7 @@ impl BoundBuildArtifact {
 #[display("{}", self.get_path())]
 pub struct DeclaredArtifact<'v> {
     /// Allocation here is not optimization: `DeclaredArtifactKind` is a shared mutable state.
-    artifact: ValueTyped<'v, StarlarkAnyComplex<RefCell<DeclaredArtifactKind>>>,
+    artifact: ValueTyped<'v, StarlarkAnyComplex<DeclaredArtifactCell>>,
     projected_path: ThinArcS<ForwardRelativePath>,
     hidden_components_count: usize,
 }
@@ -383,8 +383,8 @@ impl<'v> DeclaredArtifact<'v> {
         hidden_components_count: usize,
         heap: Heap<'v>,
     ) -> DeclaredArtifact<'v> {
-        let artifact = StarlarkAnyComplex::new(RefCell::new(DeclaredArtifactKind::Unbound(
-            UnboundArtifact(path, output_type),
+        let artifact = StarlarkAnyComplex::new(DeclaredArtifactCell(RefCell::new(
+            DeclaredArtifactKind::Unbound(UnboundArtifact(path, output_type)),
         )));
         DeclaredArtifact {
             artifact: ValueTyped::new_err(heap.alloc_complex_no_freeze(artifact))
@@ -395,7 +395,7 @@ impl<'v> DeclaredArtifact<'v> {
     }
 
     fn artifact(&self) -> &'v RefCell<DeclaredArtifactKind> {
-        &self.artifact.as_ref().value
+        &self.artifact.as_ref().value.0
     }
 
     pub fn project(&self, path: &ForwardRelativePath, hide_prefix: bool) -> Self {
@@ -514,6 +514,15 @@ enum DeclaredArtifactKind {
     Bound(BuildArtifact),
     Unbound(UnboundArtifact),
 }
+
+/// Local newtype wrapper so `StarlarkAnyComplex<_>` has a local payload type
+/// we can register a typing vtable entry for (the orphan rule forbids
+/// implementing the payload marker for `RefCell<LocalT>` directly).
+#[derive(Debug, Allocative, ProvidesStaticType, Trace)]
+#[repr(transparent)]
+pub struct DeclaredArtifactCell(RefCell<DeclaredArtifactKind>);
+
+starlark::register_starlark_any_complex!(DeclaredArtifactCell);
 
 impl DeclaredArtifactKind {
     pub fn is_bound(&self) -> bool {

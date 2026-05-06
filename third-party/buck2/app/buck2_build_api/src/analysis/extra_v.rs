@@ -17,7 +17,6 @@ use gazebo::prelude::OptionExt;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::FrozenModule;
 use starlark::environment::Module;
-use starlark::register_any_complex_frozen;
 use starlark::values::Freeze;
 use starlark::values::FreezeError;
 use starlark::values::FreezeResult;
@@ -44,7 +43,7 @@ pub struct FrozenAnalysisExtraValue {
         Option<FrozenValueTyped<'static, StarlarkAnyComplex<FrozenAnalysisValueStorage>>>,
 }
 
-register_any_complex_frozen!(FrozenAnalysisExtraValue);
+starlark::register_starlark_any_complex!(AnalysisExtraValue<'_>, frozen FrozenAnalysisExtraValue);
 
 impl<'v> Freeze for AnalysisExtraValue<'v> {
     type Frozen = FrozenAnalysisExtraValue;

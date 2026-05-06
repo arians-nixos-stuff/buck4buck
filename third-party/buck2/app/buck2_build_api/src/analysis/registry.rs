@@ -40,7 +40,6 @@ use starlark::codemap::FileSpan;
 use starlark::environment::FrozenModule;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
-use starlark::register_any_complex_frozen;
 use starlark::values::DynStarlark;
 use starlark::values::Freeze;
 use starlark::values::FreezeError;
@@ -639,7 +638,7 @@ pub struct RecordedAnalysisValues {
     actions: RecordedActions,
 }
 
-register_any_complex_frozen!(FrozenAnalysisValueStorage);
+starlark::register_starlark_any_complex!(AnalysisValueStorage<'_>, frozen FrozenAnalysisValueStorage);
 
 impl RecordedAnalysisValues {
     /// Creates a minimal RecordedAnalysisValues for testing action lookups only.

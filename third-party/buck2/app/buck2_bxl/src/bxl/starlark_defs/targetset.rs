@@ -12,6 +12,9 @@ use std::convert::Infallible;
 use std::ops::Deref;
 
 use allocative::Allocative;
+use buck2_build_api::actions::query::ActionQueryNode;
+use buck2_node::nodes::configured::ConfiguredTargetNode;
+use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::environment::QueryTarget;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use derive_more::Display;
@@ -172,15 +175,10 @@ where
     }
 }
 
-starlark::register_ty_starlark_value!(
-    StarlarkTargetSet<buck2_node::nodes::unconfigured::TargetNode>
-);
-starlark::register_ty_starlark_value!(
-    StarlarkTargetSet<buck2_node::nodes::configured::ConfiguredTargetNode>
-);
-starlark::register_ty_starlark_value!(
-    StarlarkTargetSet<buck2_build_api::actions::query::ActionQueryNode>
-);
+// Register each concrete type of TargetSet for HasTyVTable
+starlark::register_ty_starlark_value!(StarlarkTargetSet<TargetNode>);
+starlark::register_ty_starlark_value!(StarlarkTargetSet<ConfiguredTargetNode>);
+starlark::register_ty_starlark_value!(StarlarkTargetSet<ActionQueryNode>);
 
 impl<Node: QueryTarget> From<TargetSet<Node>> for StarlarkTargetSet<Node> {
     fn from(v: TargetSet<Node>) -> Self {

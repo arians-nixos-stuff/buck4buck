@@ -15,8 +15,13 @@ import sys
 import typing
 from pathlib import Path
 
+import psutil
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.api.buck_result import InvocationRecord
+
+
+def daemon_is_alive(pid: int) -> bool:
+    return psutil.pid_exists(pid)
 
 
 async def read_what_ran(buck: Buck, *args) -> typing.List[typing.Dict[str, typing.Any]]:

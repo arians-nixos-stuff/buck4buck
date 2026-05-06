@@ -12,6 +12,7 @@ python_library(
     name = "utils",
     srcs = ["helper/utils.py"],
     deps = [
+        "fbsource//third-party/pypi/psutil:psutil",
         "//buck2/tests/e2e_util/api:api",
     ],
 )

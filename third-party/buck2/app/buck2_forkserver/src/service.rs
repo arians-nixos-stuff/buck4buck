@@ -219,9 +219,7 @@ impl UnixForkserverService {
         Self::configure_environment(&mut cmd, &validated_cmd.env)?;
 
         #[cfg(target_os = "linux")]
-        if validated_cmd.network_access == Some(buck2_data::NetworkAccess::None)
-            && validated_cmd.command_cgroup.is_some()
-        {
+        if validated_cmd.network_access == Some(buck2_data::NetworkAccess::None) {
             #[cfg(fbcode_build)]
             {
                 cmd.env("INSIDE_NETWORK_ISOLATION", "1");

@@ -39,14 +39,15 @@ async def test_network_accessible(buck: Buck) -> None:
 
 
 @buck_test(skip_for_os=["windows", "darwin"])
-async def test_network_isolation_requires_cgroups(buck: Buck) -> None:
-    """Without cgroups, network_access='none' is a no-op and network stays up."""
-    # disable_daemon_cgroup defaults to True, so no cgroups here.
-    # The bind should succeed even though network_access = "none".
-    await buck.test(
-        "root//:network_isolated",
-        "--local-only",
-        "--no-remote-cache",
+async def test_network_isolated_without_cgroups(buck: Buck) -> None:
+    """Isolation applies even when daemon cgroups are off."""
+    # disable_daemon_cgroup defaults to True — no daemon-level cgroups.
+    await expect_failure(
+        buck.test(
+            "root//:network_isolated",
+            "--local-only",
+            "--no-remote-cache",
+        ),
     )
 
 

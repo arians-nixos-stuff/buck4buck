@@ -27,6 +27,7 @@ use dupe::Dupe;
 use either::Either;
 use gazebo::prelude::*;
 use pagable::Pagable;
+use pagable::pagable_typetag;
 use serde::Serialize;
 use serde::Serializer;
 use serde::ser::SerializeMap;
@@ -55,6 +56,7 @@ use starlark::values::list::AllocList;
 use starlark::values::starlark_value;
 use starlark::values::typing::TypeInstanceId;
 use starlark::values::typing::TypeMatcher;
+use starlark::values::typing::TypeMatcherDyn;
 
 use crate::actions::impls::json::JsonUnpack;
 use crate::actions::impls::json::validate_json;
@@ -84,6 +86,7 @@ use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetOrder
 use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetTraversal;
 
 #[derive(Clone, Debug, Allocative, Pagable)]
+#[pagable_typetag(TypeMatcherDyn)]
 pub(crate) struct TransitiveSetMatcher {
     pub(crate) type_instance_id: TypeInstanceId,
 }

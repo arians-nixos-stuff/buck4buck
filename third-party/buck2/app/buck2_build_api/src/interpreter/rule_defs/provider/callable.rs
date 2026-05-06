@@ -28,6 +28,7 @@ use either::Either;
 use indexmap::IndexMap;
 use itertools::Itertools;
 use pagable::Pagable;
+use pagable::pagable_typetag;
 use starlark::any::ProvidesStaticType;
 use starlark::docs::DocItem;
 use starlark::docs::DocMember;
@@ -68,6 +69,7 @@ use starlark::values::starlark_value;
 use starlark::values::typing::TypeCompiled;
 use starlark::values::typing::TypeInstanceId;
 use starlark::values::typing::TypeMatcher;
+use starlark::values::typing::TypeMatcherDyn;
 use starlark::values::typing::TypeMatcherFactory;
 use starlark_map::StarlarkHasher;
 use starlark_map::StarlarkHasherBuilder;
@@ -415,6 +417,7 @@ impl Freeze for UserProviderCallable {
 }
 
 #[derive(Debug, Clone, Allocative, Pagable)]
+#[pagable_typetag(TypeMatcherDyn)]
 struct UserProviderMatcher {
     type_instance_id: TypeInstanceId,
 }

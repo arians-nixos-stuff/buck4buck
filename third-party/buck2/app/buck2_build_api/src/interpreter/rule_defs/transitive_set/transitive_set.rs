@@ -26,6 +26,7 @@ use display_container::iter_display_chain;
 use dupe::Dupe;
 use either::Either;
 use gazebo::prelude::*;
+use pagable::Pagable;
 use serde::Serialize;
 use serde::Serializer;
 use serde::ser::SerializeMap;
@@ -82,7 +83,7 @@ use crate::interpreter::rule_defs::transitive_set::transitive_set_definition::Tr
 use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetOrdering;
 use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetTraversal;
 
-#[derive(Clone, Debug, Allocative)]
+#[derive(Clone, Debug, Allocative, Pagable)]
 pub(crate) struct TransitiveSetMatcher {
     pub(crate) type_instance_id: TypeInstanceId,
 }

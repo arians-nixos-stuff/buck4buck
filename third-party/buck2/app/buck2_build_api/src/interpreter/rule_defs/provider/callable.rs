@@ -27,6 +27,7 @@ use dupe::Dupe;
 use either::Either;
 use indexmap::IndexMap;
 use itertools::Itertools;
+use pagable::Pagable;
 use starlark::any::ProvidesStaticType;
 use starlark::docs::DocItem;
 use starlark::docs::DocMember;
@@ -413,7 +414,7 @@ impl Freeze for UserProviderCallable {
     }
 }
 
-#[derive(Debug, Clone, Allocative)]
+#[derive(Debug, Clone, Allocative, Pagable)]
 struct UserProviderMatcher {
     type_instance_id: TypeInstanceId,
 }

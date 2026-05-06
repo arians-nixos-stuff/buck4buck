@@ -13,6 +13,7 @@ use std::sync::OnceLock;
 use allocative::Allocative;
 use buck2_interpreter::late_binding_ty::ProviderReprLate;
 use dupe::Dupe;
+use pagable::Pagable;
 use starlark::type_matcher;
 use starlark::typing::Ty;
 use starlark::typing::TyStarlarkValue;
@@ -29,7 +30,7 @@ use starlark::values::typing::TypeMatcherFactory;
 use crate::interpreter::rule_defs::provider::ValueAsProviderLike;
 use crate::interpreter::rule_defs::provider::user::UserProvider;
 
-#[derive(Allocative, Clone, Debug)]
+#[derive(Allocative, Clone, Debug, Pagable)]
 struct ProviderMatcher;
 
 #[type_matcher]

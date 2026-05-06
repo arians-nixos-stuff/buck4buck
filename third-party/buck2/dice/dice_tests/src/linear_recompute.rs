@@ -35,6 +35,12 @@ async fn test_linear_recompute_tracks_deps() {
         fn pagable_type_tag(&self) -> &'static str {
             "K"
         }
+        fn pagable_serialize_body(
+            &self,
+            ser: &mut dyn pagable::PagableSerializer,
+        ) -> pagable::Result<()> {
+            <Self as pagable::PagableSerialize>::pagable_serialize(self, ser)
+        }
     }
 
     #[async_trait]

@@ -23,6 +23,11 @@ use pagable::pagable_typetag;
 struct StarlarkTypesValue {
     disable_starlark_types: bool,
     unstable_typecheck: bool,
+    /// True if buck2 should drive the recursive-descent Starlark parser
+    /// instead of the default LALRPOP parser. Stored as a bool here so we
+    /// don't have to pull DICE-trait derives (Pagable / Allocative / Dupe)
+    /// onto the upstream parser-kind enum; the consumption site converts.
+    use_rd_parser: bool,
 }
 
 #[derive(
@@ -58,6 +63,7 @@ pub trait SetStarlarkTypes {
         &mut self,
         disable_starlark_types: bool,
         unstable_typecheck: bool,
+        use_rd_parser: bool,
     ) -> buck2_error::Result<()>;
 }
 
@@ -66,12 +72,14 @@ impl SetStarlarkTypes for DiceTransactionUpdater {
         &mut self,
         disable_starlark_types: bool,
         unstable_typecheck: bool,
+        use_rd_parser: bool,
     ) -> buck2_error::Result<()> {
         Ok(self.changed_to([(
             StarlarkTypesKey,
             StarlarkTypesValue {
                 disable_starlark_types,
                 unstable_typecheck,
+                use_rd_parser,
             },
         )])?)
     }
@@ -81,6 +89,7 @@ impl SetStarlarkTypes for DiceTransactionUpdater {
 pub trait GetStarlarkTypes {
     async fn get_disable_starlark_types(&mut self) -> buck2_error::Result<bool>;
     async fn get_unstable_typecheck(&mut self) -> buck2_error::Result<bool>;
+    async fn get_use_rd_parser(&mut self) -> buck2_error::Result<bool>;
 }
 
 #[async_trait]
@@ -94,5 +103,9 @@ impl GetStarlarkTypes for DiceComputations<'_> {
 
     async fn get_unstable_typecheck(&mut self) -> buck2_error::Result<bool> {
         Ok(self.compute(&StarlarkTypesKey).await?.unstable_typecheck)
+    }
+
+    async fn get_use_rd_parser(&mut self) -> buck2_error::Result<bool> {
+        Ok(self.compute(&StarlarkTypesKey).await?.use_rd_parser)
     }
 }

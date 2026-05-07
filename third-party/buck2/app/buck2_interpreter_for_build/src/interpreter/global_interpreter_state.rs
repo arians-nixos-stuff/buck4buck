@@ -26,6 +26,7 @@ use pagable::PagablePanic;
 use pagable::pagable_typetag;
 use starlark::environment::GlobalFrozenHeapName;
 use starlark::environment::Globals;
+use starlark::syntax::ParserKind;
 
 use crate::interpreter::configuror::BuildInterpreterConfiguror;
 use crate::interpreter::context::HasInterpreterContext;
@@ -49,6 +50,12 @@ pub struct GlobalInterpreterState {
 
     /// Static typechecking for bzl and bxl files.
     pub unstable_typecheck: bool,
+
+    /// Which Starlark parser to use when parsing build/extension files.
+    /// Driven by the `buck2.starlark_parser` buckconfig; defaults to
+    /// [`ParserKind::Lalrpop`].
+    #[allocative(skip)]
+    pub parser_kind: ParserKind,
 }
 
 impl GlobalInterpreterState {
@@ -57,6 +64,7 @@ impl GlobalInterpreterState {
         interpreter_configuror: Arc<BuildInterpreterConfiguror>,
         disable_starlark_types: bool,
         unstable_typecheck: bool,
+        parser_kind: ParserKind,
     ) -> buck2_error::Result<Self> {
         let global_env = base_globals()
             .with(|g| {
@@ -74,6 +82,7 @@ impl GlobalInterpreterState {
             configuror: interpreter_configuror,
             disable_starlark_types,
             unstable_typecheck,
+            parser_kind,
         })
     }
 
@@ -128,12 +137,18 @@ impl HasGlobalInterpreterState for DiceComputations<'_> {
                 let cell_resolver = ctx.get_cell_resolver().await?;
                 let disable_starlark_types = ctx.get_disable_starlark_types().await?;
                 let unstable_typecheck = ctx.get_unstable_typecheck().await?;
+                let parser_kind = if ctx.get_use_rd_parser().await? {
+                    ParserKind::Rd
+                } else {
+                    ParserKind::Lalrpop
+                };
 
                 Ok(GisValue(Arc::new(GlobalInterpreterState::new(
                     cell_resolver,
                     interpreter_configuror,
                     disable_starlark_types,
                     unstable_typecheck,
+                    parser_kind,
                 )?)))
             }
 

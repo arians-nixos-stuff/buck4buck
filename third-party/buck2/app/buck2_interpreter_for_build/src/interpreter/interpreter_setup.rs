@@ -31,12 +31,13 @@ pub fn setup_interpreter(
     starlark_profiler_instrumentation_override: StarlarkProfilerConfiguration,
     disable_starlark_types: bool,
     unstable_typecheck: bool,
+    use_rd_parser: bool,
 ) -> buck2_error::Result<()> {
     updater.set_cell_resolver(cell_resolver)?;
     updater.set_interpreter_context(configuror)?;
     updater.set_legacy_config_external_data(legacy_config_overrides)?;
     updater.set_starlark_profiler_configuration(starlark_profiler_instrumentation_override)?;
-    updater.set_starlark_types(disable_starlark_types, unstable_typecheck)?;
+    updater.set_starlark_types(disable_starlark_types, unstable_typecheck, use_rd_parser)?;
 
     Ok(())
 }
@@ -52,6 +53,7 @@ pub fn setup_interpreter_basic(
         configuror,
         ExternalBuckconfigData::testing_default(),
         StarlarkProfilerConfiguration::default(),
+        false,
         false,
         false,
     )

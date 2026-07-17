@@ -11,6 +11,7 @@
 pub mod cycles;
 mod error;
 pub mod result;
+pub mod storage;
 
 pub use crate::error::DiceError;
 pub use crate::error::DiceErrorImpl;

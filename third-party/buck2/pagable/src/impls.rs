@@ -9,6 +9,7 @@
  */
 
 mod arc;
+mod blake3;
 mod collections;
 mod regex;
 mod serde;

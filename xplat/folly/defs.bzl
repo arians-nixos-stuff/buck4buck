@@ -7,8 +7,9 @@
 # above-listed licenses.
 
 load("@prelude//utils:buckconfig.bzl", "read_bool")
+load("@shim//tools/build_defs:platform_defs.bzl", "APPLETVOS", "IOS", "MACOSX")
 
-DEFAULT_APPLE_SDKS = ()
+DEFAULT_APPLE_SDKS = (IOS, APPLETVOS, MACOSX)
 
 FBANDROID_CPPFLAGS = []
 

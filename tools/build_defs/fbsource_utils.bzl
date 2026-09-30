@@ -14,3 +14,12 @@ def is_fbcode():
 
 def is_xplat():
     return False
+
+def is_fbcode_compatible():
+    return False
+
+def is_fbcode_mode_mac():
+    return False
+
+def is_fbcode_mode_win():
+    return False

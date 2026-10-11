@@ -29,7 +29,7 @@ resource "github_repository_ruleset" "this" {
   name        = "default"
   repository  = github_repository.buck4buck.name
   target      = "branch"
-  enforcement = "evaluate"
+  enforcement = "active"
 
   conditions {
     ref_name {

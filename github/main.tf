@@ -13,6 +13,12 @@ provider "github" {
 
 resource "github_repository" "buck4buck" {
   name = "buck4buck"
+
+  allow_merge_commit     = false
+  allow_squash_merge     = false
+  allow_rebase_merge     = true
+  allow_auto_merge       = true
+  delete_branch_on_merge = true
 }
 
 data "github_app" "buildbuddy" {

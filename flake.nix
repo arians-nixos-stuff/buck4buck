@@ -41,6 +41,11 @@
         default = pkgs.mkShell {
           packages = [
             self.packages.${pkgs.stdenv.hostPlatform.system}.josh
+            pkgs.cargo
+            pkgs.reindeer
+            # reindeer evaluates cfg() platform predicates with rustc; without it
+            # platform-specific dependencies are silently left out.
+            pkgs.rustc
           ];
         };
       });

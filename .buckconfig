@@ -1,0 +1,49 @@
+# This repository plays the role of Meta's fbsource for the code we vendor from
+# Meta (see third-party/buck2.josh). Their BUCK files refer to the cells
+# fbsource//, fbcode//, ovr_config//, toolchains// and so on, and their own
+# configs alias all of those to gh_facebook_buck2_shims_meta. Here that name and
+# the rest of Meta's cell vocabulary are aliases of our root cell.
+
+[cells]
+x = .
+gh_facebook_buck2 = third-party/buck2
+prelude = third-party/buck2/prelude
+none = none
+
+[cell_aliases]
+gh_facebook_buck2_shims_meta = x
+bazel_skylib = x
+buck = x
+fbcode = x
+fbcode_macros = x
+fbsource = x
+ovr_config = x
+shim = x
+toolchains = x
+config = prelude
+antlir = none
+
+[buildfile]
+# third-party/rust/BUCK.missing tells you to run reindeer when BUCK is absent.
+name = BUCK,BUCK.missing
+
+[build]
+execution_platforms = prelude//platforms:default
+
+[parser]
+target_platform_detector_spec = \
+  target:x//...->prelude//platforms:default \
+  target:gh_facebook_buck2//...->prelude//platforms:default
+
+[project]
+ignore = \
+  .git, \
+  .jj, \
+  .work, \
+  third-party/buck2/app/buck2_explain, \
+  third-party/buck2/app/buck2_trailcam, \
+  third-party/buck2/app_dep_graph_rules, \
+  third-party/buck2/examples, \
+  third-party/buck2/integrations/rust-project/tests, \
+  third-party/buck2/tests, \
+  third-party/buck2/target

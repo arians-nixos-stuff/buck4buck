@@ -1,0 +1,26 @@
+load("@fbsource//tools/build_defs:rust_library.bzl", "rust_library")
+
+oncall("build_infra")
+
+rust_library(
+    name = "allocative_derive",
+    srcs = glob(
+        ["src/**/*.rs"],
+    ),
+    autocargo = {
+        "cargo_toml_config": {
+            "package": {
+                "authors": ["Meta"],
+                "description": "Implementation of derive(Allocative) for allocative crate",
+                "documentation": "https://docs.rs/allocative",
+                "version": "0.3.6",
+            },
+        },
+    },
+    proc_macro = True,
+    deps = [
+        "fbsource//third-party/rust:proc-macro2",
+        "fbsource//third-party/rust:quote",
+        "fbsource//third-party/rust:syn",
+    ],
+)

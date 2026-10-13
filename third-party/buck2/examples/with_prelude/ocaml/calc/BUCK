@@ -1,0 +1,13 @@
+oncall("build_infra")
+
+_SUPPORTED = not host_info().os.is_windows
+
+# buildifier: disable=no-effect
+ocaml_binary(
+    name = "calc",
+    srcs = [
+        "calc.ml",
+        "lexer.mll",
+        "parser.mly",
+    ],
+) if _SUPPORTED else None

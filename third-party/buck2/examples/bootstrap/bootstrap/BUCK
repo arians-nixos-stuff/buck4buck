@@ -1,0 +1,11 @@
+oncall("build_infra")
+
+constraint(
+    name = "bootstrap",
+    default = "unspecified",
+    values = [
+        "use",
+        "unspecified",
+    ],
+    visibility = ["PUBLIC"],
+)

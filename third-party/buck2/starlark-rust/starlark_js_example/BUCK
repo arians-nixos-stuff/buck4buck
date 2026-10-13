@@ -1,0 +1,34 @@
+load("@fbsource//tools/build_defs:rust_library.bzl", "rust_library")
+
+oncall("build_infra")
+
+# TODO: this code is meant to be compiled to wasm,
+#       but here we only check it compiles for linux/mac/etc.
+rust_library(
+    name = "starlark_js_example",
+    srcs = glob(
+        ["src/**/*.rs"],
+    ),
+    autocargo = {
+        "cargo_target_config": {"crate_type": ["cdylib", "rlib"]},
+        "cargo_toml_config": {
+            "dependencies_override": {
+                "dependencies": {
+                    # The `pagable` feature of starlark needs nightly; only
+                    # buck2 enables it.
+                    "starlark": {"features": []},
+                },
+            },
+            "package": {
+                "description": "Example of running starlark-rust interpreter in browser",
+                "license": "Apache-2.0",
+                "publish": False,
+                "repository": "https://github.com/facebook/starlark-rust",
+                "version": "0.0.0",
+            },
+        },
+    },
+    deps = [
+        "//buck2/starlark-rust/starlark:starlark",
+    ],
+)

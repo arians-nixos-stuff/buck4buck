@@ -1,0 +1,57 @@
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is dual-licensed under either the MIT license found in the
+ * LICENSE-MIT file in the root directory of this source tree or the Apache
+ * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+ * of this source tree. You may select, at your option, one of the
+ * above-listed licenses.
+ */
+
+use allocative::Allocative;
+use derive_more::Display;
+use starlark::any::ProvidesStaticType;
+use starlark::environment::GlobalsBuilder;
+use starlark::starlark_module;
+use starlark::static_starlark_value;
+use starlark::values::AllocFrozenValue;
+use starlark::values::AllocValue;
+use starlark::values::FrozenHeap;
+use starlark::values::Heap;
+use starlark::values::NoSerialize;
+use starlark::values::StarlarkPagable;
+use starlark::values::StarlarkValue;
+use starlark::values::Value;
+use starlark::values::starlark_value;
+
+#[derive(
+    Debug,
+    PartialEq,
+    Display,
+    ProvidesStaticType,
+    NoSerialize,
+    Allocative,
+    StarlarkPagable
+)]
+pub struct StarlarkProjectRoot;
+
+#[starlark_value(type = "ProjectRoot", StarlarkTypeRepr, UnpackValue)]
+impl<'v> StarlarkValue<'v> for StarlarkProjectRoot {}
+
+static_starlark_value!(STARLARK_PROJECT_ROOT: StarlarkProjectRoot = StarlarkProjectRoot);
+
+impl<'v> AllocValue<'v> for StarlarkProjectRoot {
+    fn alloc_value(self, _heap: Heap<'v>) -> Value<'v> {
+        STARLARK_PROJECT_ROOT.at().to_value()
+    }
+}
+
+impl<'fv> AllocFrozenValue<'fv> for StarlarkProjectRoot {
+    fn alloc_frozen_value(self, _heap: FrozenHeap<'fv>) -> Value<'fv> {
+        STARLARK_PROJECT_ROOT.at().to_value()
+    }
+}
+
+#[starlark_module]
+#[starlark_types(StarlarkProjectRoot as ProjectRoot)]
+pub fn register_project_root(globals: &mut GlobalsBuilder) {}

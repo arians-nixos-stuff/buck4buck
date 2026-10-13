@@ -1,0 +1,33 @@
+load("//:test_utils.bzl", "assert_output")
+
+oncall("build_infra")
+
+rust_library(
+    name = "library",
+    srcs = glob(
+        ["src/**/*.rs"],
+    ),
+)
+
+rust_binary(
+    name = "main",
+    srcs = glob(
+        ["bin/**/*.rs"],
+    ),
+    crate_root = "bin/main.rs",
+    deps = [":library"],
+)
+
+rust_test(
+    name = "test",
+    srcs = glob(
+        ["test/**/*.rs"],
+    ),
+    deps = [":library"],
+)
+
+assert_output(
+    name = "check_main",
+    command = "$(exe_target :main)",
+    output = "hello world from rust toolchain",
+)

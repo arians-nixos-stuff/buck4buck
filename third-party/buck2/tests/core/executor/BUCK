@@ -1,0 +1,37 @@
+load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_core_tests")
+
+oncall("build_infra")
+
+buck2_core_tests(
+    target_extra_attrs = {
+        "test_cancellation": {
+            "skip_for_os": [
+                "windows",
+            ],
+        },
+        "test_hash_all_commands": {
+            # These tests heavily depend on watchman, which is flakey on
+            # non-Linux systems
+            "skip_for_os": [
+                "darwin",
+                "windows",
+            ],
+        },
+        "test_missing_materialized_inputs": {
+            # `buck2 test` needs the compiled test executor.
+            "use_compiled_buck2_client_and_tpx": True,
+        },
+        "test_output_cleanup": {
+            # RE CASd runs as non-root on mac, so it will fail to read directories
+            # produced by the test.
+            "skip_for_os": [
+                "darwin",
+            ],
+        },
+        "test_outputs_ordering": {
+            "env": {
+                "RECLI": "$(location fbsource//xplat/remote_execution/dotslash:recli)",
+            },
+        },
+    },
+)

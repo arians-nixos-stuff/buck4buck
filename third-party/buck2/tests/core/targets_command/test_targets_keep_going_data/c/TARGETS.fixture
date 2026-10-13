@@ -1,0 +1,2 @@
+# This package must keep existing for the tests that ask it for a target it does not have.
+a_target(name = "target6")

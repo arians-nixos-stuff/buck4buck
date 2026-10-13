@@ -1,0 +1,18 @@
+load(":defs.bzl", "not_a_test", "one", "two")
+
+one(
+    name = "rule0",
+)
+
+one(
+    name = "rule1",
+    deps = [":rule0"],
+)
+
+two(
+    name = "rule2",
+)
+
+not_a_test(
+    name = "not_a_test_target",
+)

@@ -1,0 +1,21 @@
+{
+  name = "kubernetes";
+
+
+  nodes.foo = {
+    imports = [
+      ./.
+    ];
+
+    # etcd is not configured via kubernetes.* namespace
+    # It's just a plain systemd service in etcd.nix
+  };
+
+  testScript = ''
+    foo.wait_for_unit("etcd.service", timeout=60)
+    foo.wait_for_unit("kube-apiserver.service", timeout=60)
+    # foo.wait_for_unit("kube-scheduler.service")
+    # foo.wait_for_unit("kube-controller-manager.service")
+    foo.wait_for_unit("kubelet.service", timeout=60)
+  '';
+}

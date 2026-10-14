@@ -1,0 +1,158 @@
+{
+  pkgs,
+  lib,
+  config,
+  ...
+}:
+{
+
+  #
+  home.packages = [
+    pkgs.socat
+    pkgs.ripgrep
+  ]
+  ++ (lib.optional pkgs.stdenv.hostPlatform.isLinux pkgs.bubblewrap);
+
+  programs.git.ignores = [ ".claude/settings.local.json" ];
+
+  programs.tmux = {
+    enable = true;
+    mouse = true;
+    escapeTime = 0;
+    terminal = "tmux-256color";
+  };
+
+  # Instance name is a directory under ~/Projects. It must already be trusted
+  # and Remote Control accepted once interactively; without a terminal
+  # `claude remote-control` cannot prompt.
+  systemd.user.services."claude-remote-control@" = lib.mkIf pkgs.stdenv.hostPlatform.isLinux {
+    Unit = {
+      Description = "Claude Code Remote Control server for %i";
+      After = [ "network-online.target" ];
+      Wants = [ "network-online.target" ];
+    };
+    Service = {
+      WorkingDirectory = "%h/Projects/%i";
+      ExecStart = "${config.home.profileDirectory}/bin/claude remote-control --spawn worktree";
+      Restart = "on-failure";
+      RestartSec = 10;
+    };
+  };
+
+  # Enabling instances by hand: Install.WantedBy on a template would link the
+  # bare `@.service`, and systemd.user.targets.default would write a full
+  # default.target that shadows systemd's own (home-manager has no drop-in
+  # strategy). These links are what `systemctl --user enable` would create.
+  xdg.configFile = lib.mkIf pkgs.stdenv.hostPlatform.isLinux (
+    lib.genAttrs' [ "nixos-stuff" "x" ] (
+      repo:
+      lib.nameValuePair "systemd/user/default.target.wants/claude-remote-control@${repo}.service" {
+        source = config.xdg.configFile."systemd/user/claude-remote-control@.service".source;
+      }
+    )
+  );
+
+  programs.claude-code = {
+    enable = true;
+    skills = {
+      bump-systemd = ./skills/bump-systemd;
+      jj-clone = ./skills/jj-clone;
+      offline-docs = ./skills/offline-docs;
+    };
+
+    rules.jj = ''
+      YOU MUST ALWAYS USE JJ FOR VERSION CONTROL. NOT GIT.
+    '';
+
+    rules.no-comments = ''
+      Avoid comments that describe things that are obvious from the code context.
+      NEVER leave traces in comments about how things were before in the past.  Prose about how code changed over time belongs in commit messages ; not code.
+    '';
+
+    rules.nixos-tests = ''
+      # Running and writing NixOS tests
+
+      NixOS VM tests fail by hanging, not by erroring. The defaults (`globalTimeout` and
+      `meta.timeout` of 3600s, `wait_for_*` timeouts of 900s) mean a broken test can
+      silently eat an hour. Keep track of wall-clock time and fail fast:
+
+      - Before running a test, decide how long it should take (most boot + a few checks
+        in under 2 minutes). Note the time with `date` and check elapsed time when it returns.
+      - Always wrap the build in `timeout`, e.g. `timeout 600 nix build -L .#checks.<system>.foo`,
+        and set the Bash tool timeout to match. Prefer running it in the background and
+        writing output to a log file, then `tail`/`grep` the file instead of dumping it all.
+      - While developing a test, set `globalTimeout = 300;` (or lower) in the test.
+      - Pass explicit short timeouts to waits: `machine.wait_for_unit("foo.service", timeout=60)`,
+        `wait_until_succeeds(..., timeout=30)`, `wait_for_open_port(80, timeout=30)`.
+        Never rely on the 900s default.
+      - If nothing new has appeared in the log for a couple of minutes, assume it is hung:
+        kill it, read the log, and fix the cause instead of waiting longer.
+      - Control driver verbosity with the test option `logLevel` (`"debug"`, `"info"`,
+        `"warning"`, `"error"`; default `"info"`). Use `"warning"` to cut noise, `"debug"`
+        when you need driver internals.
+      - After a failure, use `nix log <drv>` to get the full log rather than rebuilding.
+    '';
+
+    mcpServers.linear-server = {
+      type = "http";
+      url = "https://mcp.linear.app/mcp";
+    };
+
+    settings = {
+      sandbox = {
+        # Disabled until bwrap stops failing with EROFS when masking .claude/settings.json
+        # in worktrees under the allowRead ~/Projects re-bind.
+        enabled = false;
+        failIfUnavailable = true;
+        # this also blocks ! commands (undocumented)
+        allowUnsandboxedCommands = false;
+        filesystem = {
+          denyRead = [
+            # Lets be restrictive. No need to nose around my home directory ever.
+            # Linux is a wild-west and credentials are sprawled all over it
+            "~/"
+            # Forces a local chroot store in ~/.local/share/nix/root store in lix
+            "/nix/var/nix"
+          ];
+
+          # NOTE: darwin does not suppor chroot stores; so we give it access to the nix daemon
+          # TODO: IDK why this is needed on MacOS but not on Linux. The MAcOS Sandboxing semantics are broken
+          allowRead = [
+            "~/Projects"
+          ]
+          ++ lib.optional pkgs.stdenv.hostPlatform.isDarwin "/nix/var/nix/daemon/socket";
+
+          # needed for accessing the local chroot store and flake fetches
+          allowWrite = [
+            "~/.local/share/nix"
+            "~/.cache/nix"
+          ];
+        };
+
+        network = {
+          allowedDomains = [
+            "api.github.com"
+            "channels.nixos.org"
+            "cache.nixos.org"
+            "nixos.snix.store"
+          ];
+
+          # on Darwin we need to give a bit more unfortunately. As no chroot-store
+          allowUnixSockets = lib.mkIf pkgs.stdenv.hostPlatform.isDarwin [ "/nix/var/nix/daemon/socket" ];
+
+          # injects NIX_SSL_CERT_FILE too so it works! :party:
+          tlsTerminate = { };
+        };
+        # TODO: Figure out a way to make the sandbox talk to flatpak secret portal to get gh auth token injected.
+        # storing the gh token on disk insecurely is not a satisfying workaround.
+        credentials = {
+        };
+      };
+      permissions.ask = [
+        # http://code.claude.com/docs/en/sandboxing#the-unsandboxed-retry-escape-hatch
+        # though shouldn't be needed when allowUnsandboxedCommands = false
+        "Bash(dangerouslyDisableSandbox:true)"
+      ];
+    };
+  };
+}

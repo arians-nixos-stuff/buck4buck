@@ -1,0 +1,73 @@
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
+let
+  caFile = pkgs.concatText "ca.pub" [
+    ../keys/yk-black/id_ed25519_sk_rk_ca_arian.pub
+    ../keys/yk-yellow/id_ed25519_sk_rk_ca_arian.pub
+  ];
+
+  principals.flokli = [
+    "flokli"
+    "floklink@gmail.com"
+  ];
+  principals.arian = [
+    "arian"
+    "arian.vanputten@gmail.com"
+  ];
+  principals.picnoir = [ "picnoir" ];
+  principals.m = [ "m" ];
+in
+{
+  imports = [ ./ssh-authorized-principals.nix ];
+  services.openssh = {
+    enable = true;
+    settings = {
+      PasswordAuthentication = false;
+      TrustedUserCAKeys = "${caFile}";
+      RevokedKeys = "${../keys/revoked_keys}";
+    };
+    authorizedPrincipals = principals // {
+      root = principals.arian ++ principals.flokli;
+    };
+  };
+  services.opkssh = {
+    enable = lib.mkDefault false;
+    authorizations = [
+      # Allow deploys from Github Actions
+      {
+        user = "root";
+        principal = "repo:arianvp/nixos-stuff:environment:${config.system.name}";
+        issuer = "https://token.actions.githubusercontent.com";
+      }
+      {
+        user = "arian";
+        principal = "arian.vanputten@gmail.com";
+        issuer = "https://accounts.google.com";
+      }
+      {
+        user = "root";
+        principal = "arian.vanputten@gmail.com";
+        issuer = "https://accounts.google.com";
+      }
+      {
+        user = "flokli";
+        principal = "floklink@gmail.com";
+        issuer = "https://accounts.google.com";
+      }
+      {
+        user = "root";
+        principal = "floklink@gmail.com";
+        issuer = "https://accounts.google.com";
+      }
+    ];
+  };
+  systemd.dnssd.services.ssh = {
+    name = "%H";
+    type = "_ssh._tcp";
+    port = 22;
+  };
+}

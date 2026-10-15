@@ -1,0 +1,21 @@
+[user]
+name = "Arian van Putten"
+email = "arian@arianvp.me"
+
+[signing]
+behavior = "drop"
+backend = "ssh"
+# TODO: point to whatever yubikey is inserted. I wonder if we can do this with udev
+key = "~/.ssh/id_ed25519_sk"
+
+[remotes.upstream]
+
+# jj matches the full hostname, which on macOS is the mDNS name; list the bare
+# name too in case the machine is ever off a network that appends `.local`.
+[[--scope]]
+--when.hostnames = [
+  "Arians-MacBook-Pro.local",
+  "Arians-MacBook-Pro",
+]
+[--scope.user]
+email = "arian@mercury.com"

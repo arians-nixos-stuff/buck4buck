@@ -1,0 +1,110 @@
+{
+  nixos-hardware,
+  lanzaboote,
+  homeManagerModule,
+  noctaliaModule,
+}:
+{ lib, pkgs, ... }:
+{
+  imports = [
+    nixos-hardware.nixosModules.framework-11th-gen-intel
+    lanzaboote.nixosModules.lanzaboote
+    homeManagerModule
+    noctaliaModule
+
+    ./hardware-configuration.nix
+    ./pcrlock.nix
+    ./audit.nix
+    ../../modules/base-interactive.nix
+    ../../modules/vmspawn.nix
+    ../../modules/yggdrasil.nix
+    ../../modules/tpm2.nix
+    ./rice.nix
+    ./silent-boot.nix
+    ./ampex210.nix
+  ];
+
+  services.openssh.enable = true;
+
+  # HACK: pasta network isolation broken on ipv6-only networks like at Facebook
+  nix.settings.pasta-path = "";
+
+  boot.enableContainers = true;
+
+  virtualisation.podman.enable = true;
+  virtualisation.podman.dockerSocket.enable = true;
+  virtualisation.podman.dockerCompat = true;
+
+  services.fwupd.enable = true;
+
+  environment.shellAliases.sudo = "run0";
+
+  security.sudo.enable = false;
+
+  fileSystems = {
+    "/tmp" = {
+      device = "tmpfs";
+      fsType = "tmpfs";
+      # options = [ "nosuid" "nodev" "size=4G" ];
+    };
+  };
+
+  services.tailscale.enable = true;
+  programs.mtr.enable = true;
+
+  boot.initrd.systemd.enable = true;
+  # console.earlySetup = lib.mkForce false;
+  # boot.consoleLogLevel = 3;
+  boot.kernelParams = [
+    # "rd.systemd.show_status=auto" "rd.udev.log_level=3" "vt.global_cursor_default=0"
+  ];
+
+  # boot.kernelPackages = pkgs.linuxPackages_latest;
+  # boot.loader.systemd-boot.enable = true;
+  boot.lanzaboote.enable = true;
+  boot.lanzaboote.pkiBundle = "/var/lib/sbctl";
+  boot.loader.efi.canTouchEfiVariables = true;
+
+  boot.extraModprobeConfig = ''
+    options iwlwifi disable_11ax=Y
+  '';
+
+  networking.hostName = "framework";
+  networking.firewall.enable = true;
+  services.smartd.enable = true;
+  services.displayManager.gdm.enable = true;
+  services.desktopManager.gnome.enable = true;
+  services.dbus.implementation = "broker";
+  services.userdbd.enable = true;
+
+  environment.variables = {
+    MOZ_ENABLE_WAYLAND = "1";
+  };
+  environment.systemPackages = with pkgs; [
+    gh
+    git
+    chromium
+    cntr
+    yubioath-flutter
+    signal-desktop
+    # Wait until it builds
+    # zed-editor
+    nix-output-monitor
+  ];
+
+  users.users.arian = {
+    isNormalUser = true;
+    createHome = true;
+    extraGroups = [
+      "wheel"
+      "tss"
+      "podman"
+    ];
+  };
+
+  services.fprintd.enable = false;
+
+  programs.chromium.enable = true;
+
+  system.stateVersion = "25.05"; # Did you read the comment?
+}

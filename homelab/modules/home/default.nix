@@ -1,0 +1,68 @@
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
+{
+
+  imports = [
+    ./jj
+    ./nvim
+    ./claude-code
+    ./direnv.nix
+    ./buck2.nix
+    ./linux.nix
+    ./darwin.nix
+  ];
+
+  # This option is purely a flake workaround. In a flake, relative-path syntax
+  # like `./foo` resolves to a /nix/store copy of the flake source, so passing
+  # it to `mkOutOfStoreSymlink` produces a link to the store instead of a live
+  # file. We have to name the on-disk checkout path explicitly as a string.
+  # If we ever move off flakes, this option can go — `./foo` would just work.
+  options.repoRoot = lib.mkOption {
+    type = lib.types.path;
+    apply = toString;
+    default = "${config.home.homeDirectory}/Projects/nixos-stuff";
+    description = ''
+      Absolute path to this repo's working copy. Used by modules that want to
+      `mkOutOfStoreSymlink` a file from the repo into the home dir so edits
+      take effect without a `home-manager switch`. Override per-host if the
+      repo lives somewhere else.
+    '';
+  };
+
+  config = {
+    programs.bash.enable = true;
+    programs.zsh.enable = true;
+    programs.git.enable = true;
+
+    # Talk to GitHub over https so `gh`'s credential helper (enabled by
+    # default with programs.gh) provides auth, instead of needing an ssh key.
+    # The rewrites mean ssh remotes from upstream docs/tooling just work.
+    programs.git.settings.url = {
+      "https://github.com/".insteadOf = [
+        "git@github.com:"
+        "ssh://git@github.com/"
+      ];
+      "https://gist.github.com/".insteadOf = [
+        "git@gist.github.com:"
+        "ssh://git@gist.github.com/"
+      ];
+    };
+
+    programs.gh.enable = true;
+
+    home.packages = with pkgs; [
+      ripgrep
+      binutils
+      btop
+      ijq
+      jq
+      dotslash
+    ];
+
+    home.stateVersion = "26.05";
+  };
+}

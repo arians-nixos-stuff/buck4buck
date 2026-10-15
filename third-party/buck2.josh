@@ -1,0 +1,84 @@
+# How facebook/buck2 maps into this repository.
+#
+# Inside Meta, buck2 lives at fbcode/buck2 and refers to the rest of fbsource
+# through cells such as fbsource//, fbcode//, ovr_config// and toolchains//.
+# The open source export flattens those cells into shim/. We do the inverse:
+# the shim's contents land at the root of this repository, which plays the
+# role of fbsource, and the rest of buck2 lands in third-party/buck2.
+#
+# The mapping must stay reversible: `:invert[...]` of it has to reproduce the
+# upstream commits exactly. Shim entries are therefore listed one by one, and
+# directories we share with the shim (third-party/, tools/) one level deeper,
+# so that the inverse only claims upstream's paths. Anything new upstream adds
+# to the shim falls through to third-party/buck2/shim until it is mapped here.
+:[
+    third-party/buck2/shim = :/shim:[
+        ::.buckconfig
+        ::.buckroot
+        ::.gitignore
+        ::CODE_OF_CONDUCT.md
+        ::CONTRIBUTING.md
+        ::LICENSE-APACHE
+        ::LICENSE-MIT
+        ::README.md
+    ]
+    :/shim:[
+        ::BUCK
+        ::PACKAGE
+        ::antlir/
+        ::buck2/
+        ::build_defs/
+        ::cfg.bzl
+        ::common/
+        ::compiler/
+        ::cpu/
+        ::folly/
+        ::grpc_fb/
+        ::lib/
+        ::opensource/
+        ::os/
+        ::runtime/
+        ::shims.bzl
+        ::xplat/
+        ::third-party/binutils/
+        ::third-party/boost/
+        ::third-party/brotli/
+        ::third-party/bzip2/
+        ::third-party/defs.bzl
+        ::third-party/double_conversion/
+        ::third-party/fast_float/
+        ::third-party/fmt/
+        ::third-party/gflags/
+        ::third-party/glibc/
+        ::third-party/glog/
+        ::third-party/googletest/
+        ::third-party/jemalloc/
+        ::third-party/jvm/
+        ::third-party/libaegis/
+        ::third-party/libaio/
+        ::third-party/libdwarf/
+        ::third-party/libevent/
+        ::third-party/libgcc/
+        ::third-party/liboqs/
+        ::third-party/libsodium/
+        ::third-party/libunwind/
+        ::third-party/liburing/
+        ::third-party/lz4/
+        ::third-party/macros/
+        ::third-party/ocaml/
+        ::third-party/openssl/
+        ::third-party/proto/
+        ::third-party/python/
+        ::third-party/range-v3/
+        ::third-party/rust/
+        ::third-party/snappy/
+        ::third-party/toolchains/
+        ::third-party/xz/
+        ::third-party/zlib/
+        ::third-party/zstd/
+        ::tools/build/
+        ::tools/build_defs/
+        ::tools/target_determinator/
+    ]
+    third-party/buck2 = :/
+]

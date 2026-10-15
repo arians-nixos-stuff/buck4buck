@@ -1,0 +1,25 @@
+platform(
+    name = "platform",
+)
+
+execution_platform(
+    name = "exec_platform",
+    platform = ":platform",
+    remote_enabled = True,
+    remote_cache_enabled = True,
+)
+
+execution_platforms(
+    name = "platforms",
+    platforms = [":exec_platform"],
+)
+
+platform(
+    name = "platform1",
+    visibility = ["PUBLIC"],
+)
+
+platform(
+    name = "platform2",
+    visibility = ["PUBLIC"],
+)

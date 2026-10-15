@@ -1,0 +1,18 @@
+load("@prelude//configurations:constraint_alias.bzl", "constraint_with_aliases")
+
+oncall("build_infra")
+
+constraint_with_aliases(
+    name = "configuration",
+    aliases = {
+        "debug": "debug",
+        "release": "release",
+    },
+    default = "unspecified",
+    values = [
+        "debug",
+        "release",
+        "unspecified",
+    ],
+    visibility = ["PUBLIC"],
+)

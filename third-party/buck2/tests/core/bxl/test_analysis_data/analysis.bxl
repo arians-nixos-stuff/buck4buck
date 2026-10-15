@@ -1,0 +1,91 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is dual-licensed under either the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree or the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree. You may select, at your option, one of the
+# above-listed licenses.
+
+load(":defs.bzl", "FooInfo")
+
+def _providers_test_impl(ctx):
+    node = ctx.configured_targets("root//:provides_foo")
+    providers = ctx.analysis(node).providers()
+    ctx.output.print(providers[FooInfo])
+
+    providers = ctx.analysis(node.label).providers()
+    ctx.output.print(providers[FooInfo])
+
+providers_test = bxl_main(
+    impl = _providers_test_impl,
+    cli_args = {},
+)
+
+def _dependency_test_impl(ctx):
+    node = ctx.configured_targets("root//:stub")
+
+    dep = ctx.analysis(node).as_dependency()
+    ctx.output.print(type(dep))
+    ctx.output.print(dep.label)
+
+dependency_test = bxl_main(
+    impl = _dependency_test_impl,
+    cli_args = {},
+)
+
+def _missing_subtarget_test(ctx):
+    node = ctx.configured_targets("root//:stub").label.with_sub_target("missing_subtarget")
+    ctx.analysis(node)
+
+missing_subtarget_test = bxl_main(
+    impl = _missing_subtarget_test,
+    cli_args = {},
+)
+
+def _unconfigured_target_error_test(ctx):
+    result = ctx.analysis("root//:stub")
+    ctx.output.print(result)
+
+unconfigured_target_error_test = bxl_main(
+    impl = _unconfigured_target_error_test,
+    cli_args = {},
+)
+
+def _ordered_subtargets_test(ctx):
+    label = ctx.configured_targets("root//:provides_foo").label
+    labels = [label.with_sub_target("child_{}".format(i)) for i in range(129, -1, -1)]
+    for result in ctx.analysis(labels).values():
+        ctx.output.print(result.providers()[FooInfo].foo)
+
+ordered_subtargets_test = bxl_main(
+    impl = _ordered_subtargets_test,
+    cli_args = {},
+)
+
+def _incompatible_skip_test(ctx):
+    ctx.output.print(ctx.analysis(ctx.cli_args.target, skip_incompatible = True))
+    ctx.output.print(len(ctx.analysis([ctx.cli_args.target], skip_incompatible = True)))
+    compatible = ctx.configured_targets("root//:provides_foo").label
+    for result in ctx.analysis([ctx.cli_args.target, compatible], skip_incompatible = True).values():
+        ctx.output.print(result.providers()[FooInfo].foo)
+
+incompatible_skip_test = bxl_main(
+    impl = _incompatible_skip_test,
+    cli_args = {"target": cli_args.configured_target_label()},
+)
+
+def _incompatible_error_test(ctx):
+    ctx.analysis(ctx.cli_args.target, skip_incompatible = False)
+
+incompatible_error_test = bxl_main(
+    impl = _incompatible_error_test,
+    cli_args = {"target": cli_args.configured_target_label()},
+)
+
+def _incompatible_list_error_test(ctx):
+    ctx.analysis([ctx.cli_args.target], skip_incompatible = False)
+
+incompatible_list_error_test = bxl_main(
+    impl = _incompatible_list_error_test,
+    cli_args = {"target": cli_args.configured_target_label()},
+)

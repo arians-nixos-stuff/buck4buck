@@ -1,0 +1,78 @@
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is dual-licensed under either the MIT license found in the
+ * LICENSE-MIT file in the root directory of this source tree or the Apache
+ * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+ * of this source tree. You may select, at your option, one of the
+ * above-listed licenses.
+ */
+
+syntax = "proto3";
+
+package buck.subscription;
+
+// Client-to-daemon interaction in a subscription. This is what the client
+// writes to `stdin` of the `subscribe` command.
+message SubscriptionRequest {
+  reserved 2, 3;
+  reserved "subscribe_to_paths", "unsubscribe_from_paths";
+
+  // The actual request. See documentation of the underlying types for details.
+  oneof request {
+    Disconnect disconnect = 1;
+    SubscribeToActiveCommands subscribe_to_active_commands = 4;
+  }
+}
+
+// The client would like to gracefully disconnect. This will result in the
+// command exiting.
+message Disconnect {
+  string reason = 1;
+  // Indicate whether this disconnect sould be considered a success or not.
+  bool ok = 2;
+}
+
+message SubscribeToActiveCommands {}
+
+// Daemon to client interaction in a subscription. This is what the client will
+// receive via the `stdout` of the `subscribe` command.
+message SubscriptionResponse {
+  reserved 1;
+  reserved "materialized";
+
+  // The actual response. See documentation of the underlying types for details.
+  oneof response {
+    ActiveCommandsSnapshot active_commands_snapshot = 2;
+    Goodbye goodbye = 3;
+  }
+}
+
+message ActiveCommandsSnapshot {
+  repeated ActiveCommand active_commands = 1;
+}
+
+message ActiveCommand {
+  string trace_id = 1;
+  repeated string argv = 2;
+  ActiveCommandStats stats = 3;
+}
+
+message ActiveCommandStats {
+  /// Spans currently executing.
+  uint64 open_spans = 1;
+  /// Spans that have finished executing.
+  uint64 closed_spans = 2;
+  /// Spans that are expected to have to open (then close) before the command
+  /// finishes.
+  uint64 pending_spans = 3;
+}
+
+/// This notification is sent by the daemon when closing the connection.
+message Goodbye {
+  string reason = 1;
+
+  // Indicates whether the daemon thinks this command was successful or not.
+  // This is largely just echoing what Disconnect requested.
+  bool ok = 2;
+}

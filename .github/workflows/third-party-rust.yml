@@ -1,0 +1,28 @@
+name: third-party-rust
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  reindeer:
+    name: BUCK is up to date
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: cachix/install-nix-action@v31
+
+      - name: Regenerate with reindeer
+        run: nix develop --command reindeer --third-party-dir third-party/rust buckify
+
+      - name: Nothing changed
+        run: |
+          changes=$(git status --porcelain -- third-party/rust)
+          if [ -n "$changes" ]; then
+            echo "$changes"
+            git diff --stat -- third-party/rust
+            echo "::error::third-party/rust is out of date; run: nix develop --command reindeer --third-party-dir third-party/rust buckify"
+            exit 1
+          fi
